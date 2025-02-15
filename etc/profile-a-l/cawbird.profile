@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -33,15 +32,16 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin cawbird
 private-cache
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,fonts,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,mime.types,nsswitch.conf,pki,resolv.conf,ssl,X11,xdg
+private-etc @tls-ca,@x11,host.conf,mime.types
 private-tmp
 
-# dbus-user none
+#dbus-user none
 dbus-system none
+
+restrict-namespaces

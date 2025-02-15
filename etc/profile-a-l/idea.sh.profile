@@ -19,7 +19,6 @@ include allow-common-devel.inc
 include allow-ssh.inc
 
 include disable-common.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -34,10 +33,10 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-cache
 private-dev
-# private-tmp
+#private-tmp
 
 noexec /tmp
+restrict-namespaces

@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -31,14 +30,15 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin bash,env,fonts,jak,ms-office,python*,sh
-private-etc alternatives,ca-certificates,crypto-policies,pki,resolv.conf,ssl
+private-etc @tls-ca
 private-dev
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

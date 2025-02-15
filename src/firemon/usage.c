@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -19,7 +19,7 @@
 */
 #include "firemon.h"
 
-static char *help_str =
+static const char *const usage_str =
 	"Usage: firemon [OPTIONS] [PID]\n\n"
 	"Monitor processes started in a Firejail sandbox. Without any PID specified,\n"
 	"all processes started by Firejail are monitored. Descendants of these processes\n"
@@ -29,7 +29,6 @@ static char *help_str =
 	"\t--apparmor - print AppArmor confinement status for each sandbox.\n\n"
 	"\t--arp - print ARP table for each sandbox.\n\n"
 	"\t--caps - print capabilities configuration for each sandbox.\n\n"
-	"\t--cgroup - print control group information for each sandbox.\n\n"
 	"\t--cpu - print CPU affinity for each sandbox.\n\n"
 	"\t--debug - print debug messages.\n\n"
 	"\t--help, -? - this help screen.\n\n"
@@ -38,12 +37,12 @@ static char *help_str =
 	"\t--name=name - print information only about named sandbox.\n\n"
 	"\t--netstats - monitor network statistics for sandboxes creating a new\n"
 	"\t\tnetwork namespace.\n\n"
-	"\t--nowrap - enable line wrapping in terminals.\n\n"
 	"\t--route - print route table for each sandbox.\n\n"
 	"\t--seccomp - print seccomp configuration for each sandbox.\n\n"
 	"\t--tree - print a tree of all sandboxed processes.\n\n"
 	"\t--top - monitor the most CPU-intensive sandboxes.\n\n"
 	"\t--version - print program version and exit.\n\n"
+	"\t--wrap - enable line wrapping in terminals.\n\n"
 	"\t--x11 - print X11 display number.\n\n"
 
 	"Without any options, firemon monitors all fork, exec, id change, and exit\n"
@@ -76,10 +75,13 @@ static char *help_str =
 	"\tUser - The owner of the sandbox.\n"
 	"\n"
 	"License GPL version 2 or later\n"
-	"Homepage: https://firejail.wordpress.com\n"
-	"\n";
+	"Homepage: https://firejail.wordpress.com\n";
+
+void print_version(void) {
+	printf("firemon version %s\n\n", VERSION);
+}
 
 void usage(void) {
-	printf("firemon - version %s\n", VERSION);
-	puts(help_str);
+	print_version();
+	puts(usage_str);
 }

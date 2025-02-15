@@ -10,7 +10,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -35,7 +34,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
@@ -43,10 +41,11 @@ private
 private-bin mindless
 private-cache
 private-dev
-private-etc fonts
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

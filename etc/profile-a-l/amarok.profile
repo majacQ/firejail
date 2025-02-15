@@ -11,7 +11,6 @@ noblacklist ${MUSIC}
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -27,12 +26,11 @@ notv
 nou2f
 novideo
 protocol unix,inet,inet6
-# seccomp
-shell none
+#seccomp
 
-# private-bin amarok
+#private-bin amarok
 private-dev
-# private-etc alternatives,asound.conf,ca-certificates,crypto-policies,machine-id,pki,pulse,ssl
+#private-etc alternatives,asound.conf,ca-certificates,crypto-policies,machine-id,pki,pulse,resolv.conf,ssl
 private-tmp
 
 dbus-user filter
@@ -40,9 +38,11 @@ dbus-user.own org.kde.amarok
 dbus-user.own org.mpris.amarok
 dbus-user.own org.mpris.MediaPlayer2.amarok
 dbus-user.talk org.freedesktop.Notifications
-dbus-user.talk org.kde.StatusNotifierWatcher
+?ALLOW_TRAY: dbus-user.talk org.kde.StatusNotifierWatcher
 # If you're not on kde-plasma add the next lines to your amarok.local.
 #dbus-user.own org.kde.kded
 #dbus-user.own org.kde.klauncher
 #dbus-user.talk org.kde.knotify
 dbus-system none
+
+#restrict-namespaces

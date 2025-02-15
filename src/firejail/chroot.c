@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -20,8 +20,8 @@
 
 #ifdef HAVE_CHROOT
 #include "firejail.h"
+#include "../include/gcov_wrapper.h"
 #include <sys/mount.h>
-#include <sys/sendfile.h>
 #include <errno.h>
 
 #include <fcntl.h>
@@ -29,46 +29,31 @@
 #define O_PATH 010000000
 #endif
 
-
 // exit if error
 void fs_check_chroot_dir(void) {
 	EUID_ASSERT();
 	assert(cfg.chrootdir);
-	if (strstr(cfg.chrootdir, "..") ||
-	    is_link(cfg.chrootdir))
-		goto errout;
 
 	// check chroot dirname exists, chrooting into the root directory is not allowed
 	char *rpath = realpath(cfg.chrootdir, NULL);
-	if (rpath == NULL || !is_dir(rpath) || strcmp(rpath, "/") == 0)
-		goto errout;
-
-	char *overlay;
-	if (asprintf(&overlay, "%s/.firejail", cfg.homedir) == -1)
-		errExit("asprintf");
-	if (strncmp(rpath, overlay, strlen(overlay)) == 0) {
-		fprintf(stderr, "Error: invalid chroot directory: no directories in %s are allowed\n", overlay);
+	if (rpath == NULL || !is_dir(rpath) || strcmp(rpath, "/") == 0) {
+		fprintf(stderr, "Error: invalid chroot directory %s\n", cfg.chrootdir);
 		exit(1);
 	}
-	free(overlay);
 
 	cfg.chrootdir = rpath;
 	return;
-
-errout:
-	fprintf(stderr, "Error: invalid chroot directory %s\n", cfg.chrootdir);
-	exit(1);
 }
 
 // copy /etc/resolv.conf or /etc/machine-id in chroot directory
 static void update_file(int parentfd, const char *relpath) {
 	assert(relpath && relpath[0] && relpath[0] != '/');
 
-	char *abspath;
-	if (asprintf(&abspath, "/%s", relpath) == -1)
-		errExit("asprintf");
-	int in = open(abspath, O_RDONLY|O_CLOEXEC);
-	free(abspath);
+	int rootfd = open("/", O_PATH|O_CLOEXEC);
+	if (rootfd == -1)
+		errExit("open");
+	int in = openat(rootfd, relpath, O_RDONLY|O_CLOEXEC);
+	close(rootfd);
 	if (in == -1)
 		goto errout;
 
@@ -86,13 +71,13 @@ static void update_file(int parentfd, const char *relpath) {
 	if (arg_debug)
 		printf("Updating chroot /%s\n", relpath);
 	unlinkat(parentfd, relpath, 0);
-	int out = openat(parentfd, relpath, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, S_IRUSR | S_IWRITE | S_IRGRP | S_IROTH);
+	int out = openat(parentfd, relpath, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (out == -1) {
 		close(in);
 		goto errout;
 	}
-	if (sendfile(out, in, NULL, src.st_size) == -1)
-		errExit("sendfile");
+	if (copy_file_by_fd(in, out) != 0)
+		errExit("copy_file_by_fd");
 	close(in);
 	close(out);
 	return;
@@ -134,6 +119,11 @@ void fs_chroot(const char *rootdir) {
 	int parentfd = safer_openat(-1, rootdir, O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
 	if (parentfd == -1)
 		errExit("safer_openat");
+
+	if (faccessat(parentfd, ".", X_OK, 0) != 0) {
+		fprintf(stderr, "Error: no search permission on chroot directory\n");
+		exit(1);
+	}
 	// rootdir has to be owned by root and is not allowed to be generally writable,
 	// this also excludes /tmp and friends
 	struct stat s;
@@ -163,12 +153,8 @@ void fs_chroot(const char *rootdir) {
 	int fd = openat(parentfd, "dev", O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
 	if (fd == -1)
 		errExit("open");
-	char *proc;
-	if (asprintf(&proc, "/proc/self/fd/%d", fd) == -1)
-		errExit("asprintf");
-	if (mount("/dev", proc, NULL, MS_BIND|MS_REC, NULL) < 0)
+	if (bind_mount_path_to_fd("/dev", fd))
 		errExit("mounting /dev");
-	free(proc);
 	close(fd);
 
 #ifdef HAVE_X11
@@ -192,11 +178,8 @@ void fs_chroot(const char *rootdir) {
 		fd = openat(parentfd, "tmp/.X11-unix", O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
 		if (fd == -1)
 			errExit("open");
-		if (asprintf(&proc, "/proc/self/fd/%d", fd) == -1)
-			errExit("asprintf");
-		if (mount("/tmp/.X11-unix", proc, NULL, MS_BIND|MS_REC, NULL) < 0)
+		if (bind_mount_path_to_fd("/tmp/.X11-unix", fd))
 			errExit("mounting /tmp/.X11-unix");
-		free(proc);
 		close(fd);
 	}
 #endif // HAVE_X11
@@ -225,19 +208,11 @@ void fs_chroot(const char *rootdir) {
 			fprintf(stderr, "Error: cannot open %s\n", pulse);
 			exit(1);
 		}
-		free(pulse);
-
-		char *proc_src, *proc_dst;
-		if (asprintf(&proc_src, "/proc/self/fd/%d", src) == -1)
-			errExit("asprintf");
-		if (asprintf(&proc_dst, "/proc/self/fd/%d", dst) == -1)
-			errExit("asprintf");
-		if (mount(proc_src, proc_dst, NULL, MS_BIND|MS_REC, NULL) < 0)
-			errExit("mount bind");
-		free(proc_src);
-		free(proc_dst);
+		if (bind_mount_by_fd(src, dst))
+			errExit("mounting pulseaudio");
 		close(src);
 		close(dst);
+		free(pulse);
 
 		// update /etc/machine-id in chroot
 		update_file(parentfd, "etc/machine-id");
@@ -256,11 +231,8 @@ void fs_chroot(const char *rootdir) {
 	fd = openat(parentfd, &RUN_FIREJAIL_LIB_DIR[1], O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
 	if (fd == -1)
 		errExit("open");
-	if (asprintf(&proc, "/proc/self/fd/%d", fd) == -1)
-		errExit("asprintf");
-	if (mount(RUN_FIREJAIL_LIB_DIR, proc, NULL, MS_BIND|MS_REC, NULL) < 0)
+	if (bind_mount_path_to_fd(RUN_FIREJAIL_LIB_DIR, fd))
 		errExit("mount bind");
-	free(proc);
 	close(fd);
 
 	// create /run/firejail/mnt directory in chroot
@@ -271,29 +243,22 @@ void fs_chroot(const char *rootdir) {
 	fd = openat(parentfd, &RUN_MNT_DIR[1], O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
 	if (fd == -1)
 		errExit("open");
-	if (asprintf(&proc, "/proc/self/fd/%d", fd) == -1)
-		errExit("asprintf");
-	if (mount(RUN_MNT_DIR, proc, NULL, MS_BIND|MS_REC, NULL) < 0)
+	if (bind_mount_path_to_fd(RUN_MNT_DIR, fd))
 		errExit("mount bind");
-	free(proc);
 	close(fd);
 
 	// update chroot resolv.conf
 	update_file(parentfd, "etc/resolv.conf");
 
-#ifdef HAVE_GCOV
 	__gcov_flush();
-#endif
+
 	// create /run/firejail/mnt/oroot
 	char *oroot = RUN_OVERLAY_ROOT;
 	if (mkdir(oroot, 0755) == -1)
 		errExit("mkdir");
 	// mount the chroot dir on top of /run/firejail/mnt/oroot in order to reuse the apparmor rules for overlay
-	if (asprintf(&proc, "/proc/self/fd/%d", parentfd) == -1)
-		errExit("asprintf");
-	if (mount(proc, oroot, NULL, MS_BIND|MS_REC, NULL) < 0)
+	if (bind_mount_fd_to_path(parentfd, oroot))
 		errExit("mounting rootdir oroot");
-	free(proc);
 	close(parentfd);
 	// chroot into the new directory
 	if (arg_debug)
@@ -308,14 +273,17 @@ void fs_chroot(const char *rootdir) {
 		errExit("mounting /proc");
 
 	// create all other /run/firejail files and directories
-	preproc_build_firejail_dir();
+	preproc_build_firejail_dir_unlocked();
+	preproc_lock_firejail_dir();
+	preproc_build_firejail_dir_locked();
+	preproc_unlock_firejail_dir();
 
 	// update /var directory in order to support multiple sandboxes running on the same root directory
 	//	if (!arg_private_dev)
 	//		fs_dev_shm();
 	fs_var_lock();
 	if (!arg_keep_var_tmp)
-	        fs_var_tmp();
+		fs_var_tmp();
 	if (!arg_writable_var_log)
 		fs_var_log();
 

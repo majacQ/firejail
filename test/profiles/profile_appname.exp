@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
 # This file is part of Firejail project
-# Copyright (C) 2014-2021 Firejail Authors
+# Copyright (C) 2014-2025 Firejail Authors
 # License GPL v2
 
 set timeout 10
@@ -15,10 +15,6 @@ expect {
 expect {
 	timeout {puts "TESTING ERROR 1\n";exit}
 	"Reading profile /etc/firejail/firefox-common.profile"
-}
-expect {
-	timeout {puts "TESTING ERROR 2\n";exit}
-	"shell=none configured, but no program specified"
 }
 
 after 100

@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -28,25 +27,26 @@ apparmor
 caps.drop all
 ipc-namespace
 netfilter
-# no3d
+#no3d
 nodvd
 nogroups
 noinput
 nonewprivs
 noroot
-# nosound
+#nosound
 notv
 nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp !chroot
-shell none
 
 disable-mnt
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,ca-certificates,crypto-policies,fonts,hostname,hosts,ld.so.cache,machine-id,pki,pulse,resolv.conf,ssl
+private-etc @tls-ca
 private-tmp
 
 dbus-user none
 dbus-system none
+
+#restrict-namespaces

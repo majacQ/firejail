@@ -18,16 +18,15 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
 include whitelist-var-common.inc
 
-# apparmor - makes settings immutable
+#apparmor # makes settings immutable
 caps.drop all
 machine-id
-# net none - makes settings immutable
+#net none # makes settings immutable
 no3d
 nodvd
 nogroups
@@ -40,7 +39,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 private-bin xed
@@ -48,8 +46,9 @@ private-dev
 private-tmp
 
 # makes settings immutable
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
 
 # xed uses python plugins, memory-deny-write-execute breaks python
-# memory-deny-write-execute
+#memory-deny-write-execute
+restrict-namespaces

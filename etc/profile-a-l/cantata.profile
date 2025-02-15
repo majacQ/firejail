@@ -18,12 +18,11 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
-# apparmor
+#apparmor
 caps.drop all
 ipc-namespace
 netfilter
@@ -34,8 +33,9 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
-# private-etc drirc,fonts,gcrypt,hosts,kde5rc,mpd.conf,passwd,samba,ssl,xdg
+#private-etc alternatives,drirc,fonts,gcrypt,hosts,kde5rc,mpd.conf,passwd,samba,ssl,xdg
 private-bin cantata,mpd,perl
 private-dev
+
+restrict-namespaces

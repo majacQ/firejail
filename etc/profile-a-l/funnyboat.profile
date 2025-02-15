@@ -15,9 +15,8 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
-# include disable-shell.inc
+#include disable-shell.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.funnyboat
@@ -36,15 +35,13 @@ ipc-namespace
 netfilter
 nodvd
 nogroups
-noinput
 nonewprivs
 noroot
 notv
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
-# tracelog
+#tracelog
 
 disable-mnt
 private-cache
@@ -55,3 +52,4 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

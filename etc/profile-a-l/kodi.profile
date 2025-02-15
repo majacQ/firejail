@@ -8,6 +8,16 @@ include globals.local
 
 # noexec ${HOME} breaks plugins
 ignore noexec ${HOME}
+# Add the following to your kodi.local if you use a CEC Adapter.
+#ignore nogroups
+#ignore noroot
+#ignore private-dev
+# Add the following to your kodi.local if you use the Lutris Kodi Addon
+#noblacklist /sbin
+#noblacklist /usr/sbin
+#noblacklist ${HOME}/.cache/lutris
+#noblacklist ${HOME}/.config/lutris
+#noblacklist ${HOME}/.local/share/lutris
 
 noblacklist ${HOME}/.kodi
 noblacklist ${MUSIC}
@@ -22,7 +32,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -34,13 +43,13 @@ netfilter
 nogroups
 noinput
 nonewprivs
-# Seems to cause issues with Nvidia drivers sometimes (#3501)
 noroot
 nou2f
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 private-dev
 private-tmp
+
+restrict-namespaces

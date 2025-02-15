@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -30,11 +30,9 @@ int arg_debug = 0;
 static int arg_route = 0;
 static int arg_arp = 0;
 static int arg_tree = 0;
-static int arg_interface = 0;
 static int arg_seccomp = 0;
 static int arg_caps = 0;
 static int arg_cpu = 0;
-static int arg_cgroup = 0;
 static int arg_x11 = 0;
 static int arg_top = 0;
 static int arg_list = 0;
@@ -147,7 +145,7 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 		else if (strcmp(argv[i], "--version") == 0) {
-			printf("firemon version %s\n\n", VERSION);
+			print_version();
 			return 0;
 		}
 		else if (strcmp(argv[i], "--debug") == 0)
@@ -173,21 +171,12 @@ int main(int argc, char **argv) {
 		// cumulative options with or without a pid argument
 		else if (strcmp(argv[i], "--x11") == 0)
 			arg_x11 = 1;
-		else if (strcmp(argv[i], "--cgroup") == 0)
-			arg_cgroup = 1;
 		else if (strcmp(argv[i], "--cpu") == 0)
 			arg_cpu = 1;
 		else if (strcmp(argv[i], "--seccomp") == 0)
 			arg_seccomp = 1;
 		else if (strcmp(argv[i], "--caps") == 0)
 			arg_caps = 1;
-		else if (strcmp(argv[i], "--interface") == 0) {
-			if (getuid() != 0) {
-				fprintf(stderr, "Error: you need to be root to run this command\n");
-				exit(1);
-			}
-			arg_interface = 1;
-		}
 #ifdef HAVE_NETWORK
 		else if (strcmp(argv[i], "--route") == 0)
 			arg_route = 1;
@@ -264,14 +253,12 @@ int main(int argc, char **argv) {
 
 	// if --name requested without other options, print all data
 	if (pid && !arg_cpu && !arg_seccomp && !arg_caps && !arg_apparmor &&
-	    !arg_cgroup && !arg_x11 && !arg_interface && !arg_route && !arg_arp) {
+	    !arg_x11  && !arg_route && !arg_arp) {
 		arg_tree = 1;
 		arg_cpu = 1;
 		arg_seccomp = 1;
 		arg_caps = 1;
-		arg_cgroup = 1;
 		arg_x11 = 1;
-		arg_interface = 1;
 		arg_route = 1;
 		arg_arp = 1;
 		arg_apparmor = 1;
@@ -295,16 +282,8 @@ int main(int argc, char **argv) {
 		apparmor((pid_t) pid, print_procs);
 		print_procs = 0;
 	}
-	if (arg_cgroup) {
-		cgroup((pid_t) pid, print_procs);
-		print_procs = 0;
-	}
 	if (arg_x11) {
 		x11((pid_t) pid, print_procs);
-		print_procs = 0;
-	}
-	if (arg_interface && getuid() == 0) {
-		interface((pid_t) pid, print_procs);
 		print_procs = 0;
 	}
 	if (arg_route) {

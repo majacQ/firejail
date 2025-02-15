@@ -29,7 +29,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -47,7 +46,7 @@ apparmor
 caps.keep chown,dac_override,setgid,setuid
 ipc-namespace
 machine-id
-#net none - breaks on Ubuntu
+#net none # breaks on Ubuntu
 no3d
 nodvd
 nogroups
@@ -56,11 +55,9 @@ nosound
 notv
 nou2f
 novideo
-shell none
 tracelog
 
 disable-mnt
 private-cache
 private-dev
 writable-var
-

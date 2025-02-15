@@ -9,7 +9,6 @@ include globals.local
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
-include disable-passwdmgr.inc
 include disable-interpreters.inc
 include disable-programs.inc
 include disable-shell.inc
@@ -37,14 +36,13 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin regextester
 private-cache
 private-dev
-private-etc alternatives,fonts
+private-etc
 private-lib libgranite.so.*
 private-tmp
 
@@ -54,3 +52,4 @@ dbus-system none
 
 # never write anything
 read-only ${HOME}
+restrict-namespaces

@@ -18,7 +18,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -40,15 +39,16 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-bin profanity
 private-cache
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,localtime,mime.types,nsswitch.conf,pki,resolv.conf,ssl
+private-etc @tls-ca,mime.types
 private-tmp
 
-dbus-user none
+dbus-user filter
+dbus-user.talk org.freedesktop.Notifications
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

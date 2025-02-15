@@ -1,5 +1,5 @@
 # Firejail profile for bluefish
-# Description: Advanced Gtk+ text editor for web and software development
+# Description: Advanced GTK text editor for web and software development
 # This file is overwritten after every install/update
 # Persistent local customizations
 include bluefish.local
@@ -10,7 +10,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 include whitelist-var-common.inc
@@ -30,7 +29,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 private-bin bluefish
@@ -39,3 +37,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

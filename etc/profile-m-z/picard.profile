@@ -18,7 +18,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -37,8 +36,8 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-dev
 private-tmp
 
+restrict-namespaces

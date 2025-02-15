@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -40,15 +39,16 @@ nou2f
 novideo
 protocol unix,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin ktouch
 private-cache
 private-dev
-private-etc alternatives,fonts,kde5rc,machine-id
+private-etc @x11
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

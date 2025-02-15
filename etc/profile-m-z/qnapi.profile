@@ -14,7 +14,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -42,15 +41,16 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 private-bin 7z,qnapi
 private-cache
 private-dev
-private-etc alternatives,fonts
+private-etc
 private-opt none
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

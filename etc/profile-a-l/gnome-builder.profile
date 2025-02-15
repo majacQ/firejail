@@ -16,7 +16,6 @@ noblacklist ${HOME}/.local/share/gnome-builder
 include allow-common-devel.inc
 
 include disable-common.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 include whitelist-runuser-common.inc
@@ -34,8 +33,8 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-dev
 
 read-write ${HOME}/.bash_history
+restrict-namespaces

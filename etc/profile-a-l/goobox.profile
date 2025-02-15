@@ -11,7 +11,6 @@ noblacklist ${MUSIC}
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -27,10 +26,11 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
-# private-bin goobox
+#private-bin goobox
 private-dev
-# private-etc alternatives,asound.conf,ca-certificates,crypto-policies,fonts,machine-id,pki,pulse,ssl
-# private-tmp
+#private-etc alternatives,asound.conf,ca-certificates,crypto-policies,fonts,machine-id,pki,pulse,ssl
+#private-tmp
+
+restrict-namespaces

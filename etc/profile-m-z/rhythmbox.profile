@@ -21,13 +21,12 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
 whitelist /usr/share/rhythmbox
-whitelist /usr/share/lua
+whitelist /usr/share/lua*
 whitelist /usr/share/libquvi-scripts
 whitelist /usr/share/tracker
 include whitelist-runuser-common.inc
@@ -47,12 +46,12 @@ novideo
 protocol unix,inet,inet6,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 private-bin rhythmbox,rhythmbox-client
 private-cache
 private-dev
+private-etc @tls-ca,@x11,python*
 private-tmp
 
 dbus-user filter
@@ -65,3 +64,5 @@ dbus-user.talk org.freedesktop.Notifications
 dbus-user.talk org.gnome.SettingsDaemon.MediaKeys
 dbus-system filter
 dbus-system.talk org.freedesktop.Avahi
+
+restrict-namespaces

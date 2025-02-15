@@ -6,7 +6,6 @@ include quassel.local
 # Persistent global definitions
 include globals.local
 
-
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
@@ -24,3 +23,5 @@ seccomp !chroot
 
 private-cache
 private-tmp
+
+#restrict-namespaces

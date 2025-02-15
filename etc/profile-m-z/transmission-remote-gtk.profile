@@ -12,9 +12,7 @@ noblacklist ${HOME}/.config/transmission-remote-gtk
 mkdir ${HOME}/.config/transmission-remote-gtk
 whitelist ${HOME}/.config/transmission-remote-gtk
 
-private-etc fonts,hostname,hosts,resolv.conf
-# Problems with private-lib (see issue #2889)
-ignore private-lib
+private-etc
 
 ignore memory-deny-write-execute
 

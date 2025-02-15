@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 whitelist /usr/share/nano
@@ -39,18 +38,17 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
-# disable-mnt
+#disable-mnt
 private-bin nano,rnano
 private-cache
 private-dev
 # Add the next lines to your nano.local if you want to edit files in /etc directly.
 #ignore private-etc
 #writable-etc
-private-etc alternatives,nanorc
+private-etc nanorc
 # Add the next line to your nano.local if you want to edit files in /var directly.
 #writable-var
 
@@ -58,3 +56,6 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+read-write ${HOME}/.config/nano
+read-write ${HOME}/.nanorc
+restrict-namespaces

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -32,11 +32,22 @@
 #include <ctype.h>
 #include <assert.h>
 
+#if !defined(__func__) && defined(__FUNCTION__)
+#define __func__ __FUNCTION__
+#endif
+
 // dbus proxy path used by firejail and firemon
 #define XDG_DBUS_PROXY_PATH "/usr/bin/xdg-dbus-proxy"
 
+#define errExit(msg) _errExit(__FILE__, __LINE__, __func__, msg)
 
-#define errExit(msg)    do { char msgout[500]; snprintf(msgout, 500, "Error %s: %s:%d %s", msg, __FILE__, __LINE__, __FUNCTION__); perror(msgout); exit(1);} while (0)
+static inline void __attribute__((noreturn))
+_errExit(const char *fname, int lineno, const char *func, const char *msg) {
+	char msgout[500];
+	snprintf(msgout, 500, "Error %s:%d: %s: %s", fname, lineno, func, msg);
+	perror(msgout);
+	exit(1);
+}
 
 // macro to print ip addresses in a printf statement
 #define PRINT_IP(A) \
@@ -70,6 +81,25 @@ static inline int atoip(const char *str, uint32_t *ip) {
 		return 1;
 
 	*ip = a * 0x1000000 + b * 0x10000 + c * 0x100 + d;
+	return 0;
+}
+
+// read an IPv4 address in CIDR format, for example 192.168.1.0/24
+static inline int atocidr(const char *str, uint32_t *ip, uint32_t *mask) {
+	unsigned a, b, c, d, e;
+
+	// extract ip
+	int rv = sscanf(str, "%u.%u.%u.%u/%u", &a, &b, &c, &d, &e);
+	if (rv != 5 || a > 255 || b > 255 || c > 255 || d > 255 || e > 32)
+		return 1;
+	*ip = a * 0x1000000 + b * 0x10000 + c * 0x100 + d;
+
+	// extract mask
+	uint32_t tmp;
+	unsigned i;
+	for (i = 0, *mask = 0, tmp = 0x80000000; i < e; i++, tmp >>= 1) {
+		*mask |= tmp;
+	}
 	return 0;
 }
 
@@ -115,12 +145,20 @@ static inline int mac_not_zero(const unsigned char mac[6]) {
 
 void timetrace_start(void);
 float timetrace_end(void);
-int join_namespace(pid_t pid, char *type);
+int join_namespace_by_fd(int dirfd, char *typestr);
+int join_namespace(pid_t pid, char *typestr);
 int name2pid(const char *name, pid_t *pid);
 char *pid_proc_comm(const pid_t pid);
 char *pid_proc_cmdline(const pid_t pid);
 int pid_proc_cmdline_x11_xpra_xephyr(const pid_t pid);
 int pid_hidepid(void);
+char *do_replace_cntrl_chars(char *str, char c);
+char *replace_cntrl_chars(const char *str, char c);
+char *escape_cntrl_chars(const char *str);
+int has_cntrl_chars(const char *str);
+void reject_cntrl_chars(const char *fname);
+void reject_meta_chars(const char *fname, int globbing);
 void warn_dumpable(void);
 const char *gnu_basename(const char *path);
+int *str_to_int_array(const char *str, size_t *sz);
 #endif

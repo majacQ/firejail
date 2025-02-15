@@ -17,7 +17,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -40,15 +39,15 @@ notv
 nou2f
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 private-cache
 private-dev
-private-etc alternatives,fonts
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
 
-#memory-deny-write-execute - breaks on Arch (see issue #1803)
+#memory-deny-write-execute # breaks on Arch (see issue #1803)
+restrict-namespaces

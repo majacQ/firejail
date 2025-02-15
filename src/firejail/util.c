@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -19,8 +19,7 @@
  */
 #define _XOPEN_SOURCE 500
 #include "firejail.h"
-#include <ftw.h>
-#include <sys/stat.h>
+#include "../include/gcov_wrapper.h"
 #include <sys/mount.h>
 #include <syslog.h>
 #include <errno.h>
@@ -42,9 +41,48 @@
 #endif
 
 #define MAX_GROUPS 1024
-#define MAXBUF 4098
+#define MAXBUF 4096
 #define EMPTY_STRING ("")
 
+
+long long unsigned parse_arg_size(char *str) {
+	long long unsigned result = 0;
+	int len = strlen(str);
+	sscanf(str, "%llu", &result);
+
+	char suffix = *(str + len - 1);
+	if (!isdigit(suffix) && (suffix == 'k' || suffix == 'm' || suffix == 'g')) {
+		len -= 1;
+	}
+
+	/* checks for is value valid positive number */
+	int i;
+	for (i = 0; i < len; i++) {
+		if (!isdigit(*(str+i))) {
+			return 0;
+		}
+	}
+
+	if (isdigit(suffix))
+		return result;
+
+	switch (suffix) {
+	case 'k':
+		result *= 1024;
+		break;
+	case 'm':
+		result *= 1024 * 1024;
+		break;
+	case 'g':
+		result *= 1024 * 1024 * 1024;
+		break;
+	default:
+		result = 0;
+		break;
+	}
+
+	return result;
+}
 
 // send the error to /var/log/auth.log and exit after a small delay
 void errLogExit(char* fmt, ...) {
@@ -66,41 +104,140 @@ void errLogExit(char* fmt, ...) {
 	exit(1);
 }
 
+// Returns whether all supplementary groups can be safely dropped
+int check_can_drop_all_groups() {
+	static int can_drop_all_groups = -1;
+
+	// Avoid needlessly checking (and printing) things twice
+	if (can_drop_all_groups != -1)
+		goto out;
+
+	// nvidia cards require video group; ignore nogroups
+	if (access("/dev/nvidiactl", R_OK) == 0 && arg_no3d == 0) {
+		fwarning("NVIDIA card detected, nogroups command ignored\n");
+		can_drop_all_groups = 0;
+		goto out;
+	}
+
+	/* When we are not sure that the system has working seat-based ACLs
+	 * (e.g.: probably yes on (e)udev + (e)logind, probably not on eudev +
+	 * seatd), supplementary groups (e.g.: audio and input) might be needed
+	 * to avoid breakage (e.g.: audio or gamepads not working).  See #4600
+	 * and #4603.
+	 */
+	if (access("/run/systemd/seats/", F_OK) != 0) {
+		// TODO: wrc causes this to be printed even with (e)logind (see #4930)
+		//fwarning("logind not detected, nogroups command ignored\n");
+		can_drop_all_groups = 0;
+		goto out;
+	}
+
+	if (arg_debug)
+		fprintf(stderr, "nogroups command not ignored\n");
+	can_drop_all_groups = 1;
+
+out:
+	return can_drop_all_groups;
+}
+
+static int find_group(gid_t group, const gid_t *groups, int ngroups) {
+	int i;
+	for (i = 0; i < ngroups; i++) {
+		if (group == groups[i])
+			return i;
+	}
+
+	return -1;
+}
+
+// Gets group from "groupname" and adds it to "new_groups" if it exists on
+// "groups".  Always returns the current value of new_ngroups.
+static int copy_group_ifcont(const char *groupname,
+                             const gid_t *groups, int ngroups,
+                             gid_t *new_groups, int *new_ngroups, int new_sz) {
+	if (*new_ngroups >= new_sz) {
+		errno = ERANGE;
+		goto out;
+	}
+
+	gid_t g = get_group_id(groupname);
+	if (g && find_group(g, groups, ngroups) >= 0) {
+		new_groups[*new_ngroups] = g;
+		(*new_ngroups)++;
+	}
+
+out:
+	return *new_ngroups;
+}
+
 static void clean_supplementary_groups(gid_t gid) {
 	assert(cfg.username);
 	gid_t groups[MAX_GROUPS];
 	int ngroups = MAX_GROUPS;
+
+	if (arg_nogroups && check_can_drop_all_groups()) {
+		if (setgroups(0, NULL) < 0)
+			errExit("setgroups");
+		if (arg_debug)
+			printf("No supplementary groups\n");
+		return;
+	}
+
 	int rv = getgrouplist(cfg.username, gid, groups, &ngroups);
 	if (rv == -1)
 		goto clean_all;
 
 	// clean supplementary group list
-	// allow only firejail, tty, audio, video, games
 	gid_t new_groups[MAX_GROUPS];
 	int new_ngroups = 0;
 	char *allowed[] = {
 		"firejail",
 		"tty",
-		"audio",
-		"video",
 		"games",
 		NULL
 	};
 
 	int i = 0;
 	while (allowed[i]) {
-		gid_t g = get_group_id(allowed[i]);
-	 	if (g) {
-			int j;
-			for (j = 0; j < ngroups; j++) {
-				if (g == groups[j]) {
-					new_groups[new_ngroups] = g;
-					new_ngroups++;
-					break;
-				}
-			}
-		}
+		copy_group_ifcont(allowed[i], groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
 		i++;
+	}
+
+	if (!arg_nosound) {
+		copy_group_ifcont("audio", groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
+		copy_group_ifcont("pipewire", groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
+	}
+
+	if (!arg_novideo) {
+		copy_group_ifcont("video", groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
+	}
+
+	if (!arg_no3d) {
+		copy_group_ifcont("render", groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
+		copy_group_ifcont("vglusers", groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
+	}
+
+	if (!arg_noprinters) {
+		copy_group_ifcont("lp", groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
+	}
+
+	if (!arg_nodvd) {
+		copy_group_ifcont("cdrom", groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
+		copy_group_ifcont("optical", groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
+	}
+
+	if (!arg_noinput) {
+		copy_group_ifcont("input", groups, ngroups,
+		                  new_groups, &new_ngroups, MAX_GROUPS);
 	}
 
 	if (new_ngroups) {
@@ -121,28 +258,28 @@ static void clean_supplementary_groups(gid_t gid) {
 	return;
 
 clean_all:
-	fwarning("cleaning all supplementary groups\n");
 	if (setgroups(0, NULL) < 0)
 		errExit("setgroups");
 }
 
 
 // drop privileges
-// - for root group or if nogroups is set, supplementary groups are not configured
-void drop_privs(int nogroups) {
+// - for root group or if force_nogroups is set, supplementary groups are not configured
+void drop_privs(int force_nogroups) {
 	gid_t gid = getgid();
 	if (arg_debug)
-		printf("Drop privileges: pid %d, uid %d, gid %d, nogroups %d\n",  getpid(), getuid(), gid, nogroups);
+		printf("Drop privileges: pid %d, uid %d, gid %d, force_nogroups %d\n",
+		       getpid(), getuid(), gid, force_nogroups);
 
 	// configure supplementary groups
 	EUID_ROOT();
-	if (gid == 0 || nogroups) {
+	if (gid == 0 || force_nogroups) {
 		if (setgroups(0, NULL) < 0)
 			errExit("setgroups");
 		if (arg_debug)
 			printf("No supplementary groups\n");
 	}
-	else if (arg_noroot)
+	else if (arg_noroot || arg_nogroups)
 		clean_supplementary_groups(gid);
 
 	// set uid/gid
@@ -271,7 +408,7 @@ void set_nice(int inc) {
 }
 
 
-static int copy_file_by_fd(int src, int dst) {
+int copy_file_by_fd(int src, int dst) {
 	assert(src >= 0);
 	assert(dst >= 0);
 
@@ -325,7 +462,7 @@ int copy_file(const char *srcname, const char *destname, uid_t uid, gid_t gid, m
 }
 
 // return -1 if error, 0 if no error
-void copy_file_as_user(const char *srcname, const char *destname, uid_t uid, gid_t gid, mode_t mode) {
+void copy_file_as_user(const char *srcname, const char *destname, mode_t mode) {
 	pid_t child = fork();
 	if (child < 0)
 		errExit("fork");
@@ -333,13 +470,13 @@ void copy_file_as_user(const char *srcname, const char *destname, uid_t uid, gid
 		// drop privileges
 		drop_privs(0);
 
-		// copy, set permissions and ownership
-		int rv = copy_file(srcname, destname, uid, gid, mode); // already a regular user
+		// copy, set permissions
+		int rv = copy_file(srcname, destname, -1, -1, mode); // already a regular user
 		if (rv)
 			fwarning("cannot copy %s\n", srcname);
-#ifdef HAVE_GCOV
+
 		__gcov_flush();
-#endif
+
 		_exit(0);
 	}
 	// wait for the child to finish
@@ -371,9 +508,9 @@ void copy_file_from_user_to_root(const char *srcname, const char *destname, uid_
 			close(src);
 		}
 		close(dst);
-#ifdef HAVE_GCOV
+
 		__gcov_flush();
-#endif
+
 		_exit(0);
 	}
 	// wait for the child to finish
@@ -394,17 +531,17 @@ void touch_file_as_user(const char *fname, mode_t mode) {
 		// drop privileges
 		drop_privs(0);
 
-		FILE *fp = fopen(fname, "wx");
-		if (fp) {
-			fprintf(fp, "\n");
-			SET_PERMS_STREAM(fp, -1, -1, mode);
-			fclose(fp);
+		int fd = open(fname, O_RDONLY|O_CREAT|O_EXCL|O_CLOEXEC, S_IRUSR | S_IWUSR);
+		if (fd > -1) {
+			int err = fchmod(fd, mode);
+			(void) err;
+			close(fd);
 		}
 		else
 			fwarning("cannot create %s\n", fname);
-#ifdef HAVE_GCOV
+
 		__gcov_flush();
-#endif
+
 		_exit(0);
 	}
 	// wait for the child to finish
@@ -421,14 +558,12 @@ int is_dir(const char *fname) {
 	int rv;
 	struct stat s;
 	if (fname[strlen(fname) - 1] == '/')
-		rv = stat(fname, &s);
+		rv = stat_as_user(fname, &s);
 	else {
 		char *tmp;
-		if (asprintf(&tmp, "%s/", fname) == -1) {
-			fprintf(stderr, "Error: cannot allocate memory, %s:%d\n", __FILE__, __LINE__);
+		if (asprintf(&tmp, "%s/", fname) == -1)
 			errExit("asprintf");
-		}
-		rv = stat(tmp, &s);
+		rv = stat_as_user(tmp, &s);
 		free(tmp);
 	}
 
@@ -447,16 +582,89 @@ int is_link(const char *fname) {
 	if (*fname == '\0')
 		return 0;
 
-	char *dup = strdup(fname);
-	if (!dup)
+	// remove trailing '/' if any
+	char *tmp = strdup(fname);
+	if (!tmp)
 		errExit("strdup");
-	trim_trailing_slash_or_dot(dup);
+	trim_trailing_slash_or_dot(tmp);
 
 	char c;
-	ssize_t rv = readlink(dup, &c, 1);
+	ssize_t rv = readlink_as_user(tmp, &c, 1);
+	free(tmp);
 
-	free(dup);
 	return (rv != -1);
+}
+
+char *realpath_as_user(const char *fname) {
+	assert(fname);
+
+	int called_as_root = 0;
+	if (geteuid() == 0)
+		called_as_root = 1;
+
+	if (called_as_root)
+		EUID_USER();
+
+	char *rv = realpath(fname, NULL);
+
+	if (called_as_root)
+		EUID_ROOT();
+
+	return rv;
+}
+
+ssize_t readlink_as_user(const char *fname, char *buf, size_t sz) {
+	assert(fname && buf && sz);
+
+	int called_as_root = 0;
+	if (geteuid() == 0)
+		called_as_root = 1;
+
+	if (called_as_root)
+		EUID_USER();
+
+	ssize_t rv = readlink(fname, buf, sz);
+
+	if (called_as_root)
+		EUID_ROOT();
+
+	return rv;
+}
+
+int stat_as_user(const char *fname, struct stat *s) {
+	assert(fname);
+
+	int called_as_root = 0;
+	if (geteuid() == 0)
+		called_as_root = 1;
+
+	if (called_as_root)
+		EUID_USER();
+
+	int rv = stat(fname, s);
+
+	if (called_as_root)
+		EUID_ROOT();
+
+	return rv;
+}
+
+int lstat_as_user(const char *fname, struct stat *s) {
+	assert(fname);
+
+	int called_as_root = 0;
+	if (geteuid() == 0)
+		called_as_root = 1;
+
+	if (called_as_root)
+		EUID_USER();
+
+	int rv = lstat(fname, s);
+
+	if (called_as_root)
+		EUID_ROOT();
+
+	return rv;
 }
 
 // remove all slashes and single dots from the end of a path
@@ -594,75 +802,6 @@ void check_unsigned(const char *str, const char *msg) {
 }
 
 
-#define BUFLEN 4096
-// find the first child for this parent; return 1 if error
-int find_child(pid_t parent, pid_t *child) {
-	EUID_ASSERT();
-	*child = 0;				  // use it to flag a found child
-
-	DIR *dir;
-	EUID_ROOT();				  // grsecurity fix
-	if (!(dir = opendir("/proc"))) {
-		// sleep 2 seconds and try again
-		sleep(2);
-		if (!(dir = opendir("/proc"))) {
-			fprintf(stderr, "Error: cannot open /proc directory\n");
-			exit(1);
-		}
-	}
-
-	struct dirent *entry;
-	char *end;
-	while (*child == 0 && (entry = readdir(dir))) {
-		pid_t pid = strtol(entry->d_name, &end, 10);
-		if (end == entry->d_name || *end)
-			continue;
-		if (pid == parent)
-			continue;
-
-		// open stat file
-		char *file;
-		if (asprintf(&file, "/proc/%u/status", pid) == -1) {
-			perror("asprintf");
-			exit(1);
-		}
-		FILE *fp = fopen(file, "re");
-		if (!fp) {
-			free(file);
-			continue;
-		}
-
-		// look for firejail executable name
-		char buf[BUFLEN];
-		while (fgets(buf, BUFLEN - 1, fp)) {
-			if (strncmp(buf, "PPid:", 5) == 0) {
-				char *ptr = buf + 5;
-				while (*ptr != '\0' && (*ptr == ' ' || *ptr == '\t')) {
-					ptr++;
-				}
-				if (*ptr == '\0') {
-					fprintf(stderr, "Error: cannot read /proc file\n");
-					exit(1);
-				}
-				if (parent == atoi(ptr)) {
-					// we don't want /usr/bin/xdg-dbus-proxy!
-					char *cmdline = pid_proc_cmdline(pid);
-					if (strncmp(cmdline, XDG_DBUS_PROXY_PATH, strlen(XDG_DBUS_PROXY_PATH)) != 0)
-						*child = pid;
-					free(cmdline);
-				}
-				break;		  // stop reading the file
-			}
-		}
-		fclose(fp);
-		free(file);
-	}
-	closedir(dir);
-	EUID_USER();
-	return (*child)? 0:1;			  // 0 = found, 1 = not found
-}
-
-
 void extract_command_name(int index, char **argv) {
 	EUID_ASSERT();
 	assert(argv);
@@ -751,14 +890,14 @@ void wait_for_other(int fd) {
 	//****************************
 	// wait for the parent to be initialized
 	//****************************
-	char childstr[BUFLEN + 1];
+	char childstr[MAXBUF + 1];
 	int newfd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
 	if (newfd == -1)
 		errExit("fcntl");
 	FILE* stream;
 	stream = fdopen(newfd, "r");
 	*childstr = '\0';
-	if (fgets(childstr, BUFLEN, stream)) {
+	if (fgets(childstr, MAXBUF, stream)) {
 		// remove \n)
 		char *ptr = childstr;
 		while(*ptr !='\0' && *ptr != '\n')
@@ -810,141 +949,16 @@ void notify_other(int fd) {
 	fclose(stream);
 }
 
-uid_t pid_get_uid(pid_t pid) {
-	EUID_ASSERT();
-	uid_t rv = 0;
 
-	// open status file
-	char *file;
-	if (asprintf(&file, "/proc/%u/status", pid) == -1) {
-		perror("asprintf");
-		exit(1);
-	}
-	EUID_ROOT();				  // grsecurity fix
-	FILE *fp = fopen(file, "re");
-	if (!fp) {
-		free(file);
-		fprintf(stderr, "Error: cannot open /proc file\n");
-		exit(1);
-	}
-
-	// extract uid
-	static const int PIDS_BUFLEN = 1024;
-	char buf[PIDS_BUFLEN];
-	while (fgets(buf, PIDS_BUFLEN - 1, fp)) {
-		if (strncmp(buf, "Uid:", 4) == 0) {
-			char *ptr = buf + 4;
-			while (*ptr != '\0' && (*ptr == ' ' || *ptr == '\t')) {
-				ptr++;
-			}
-			if (*ptr == '\0') {
-				fprintf(stderr, "Error: cannot read /proc file\n");
-				exit(1);
-			}
-
-			rv = atoi(ptr);
-			break;			  // break regardless!
-		}
-	}
-
-	fclose(fp);
-	free(file);
-	EUID_USER();				  // grsecurity fix
-
-	return rv;
-}
-
-
-
-
-uid_t get_group_id(const char *group) {
-	// find tty group id
+gid_t get_group_id(const char *groupname) {
 	gid_t gid = 0;
-	struct group *g = getgrnam(group);
+	struct group *g = getgrnam(groupname);
 	if (g)
 		gid = g->gr_gid;
 
 	return gid;
 }
 
-
-static int remove_callback(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
-	(void) sb;
-	(void) typeflag;
-	(void) ftwbuf;
-	assert(fpath);
-
-	if (strcmp(fpath, ".") == 0)
-		return 0;
-
-	if (remove(fpath)) {	// removes the link not the actual file
-		perror("remove");
-		fprintf(stderr, "Error: cannot remove file from user .firejail directory: %s\n", fpath);
-		exit(1);
-	}
-
-	return 0;
-}
-
-
-int remove_overlay_directory(void) {
-	EUID_ASSERT();
-	struct stat s;
-	sleep(1);
-
-	char *path;
-	if (asprintf(&path, "%s/.firejail", cfg.homedir) == -1)
-		errExit("asprintf");
-
-	if (lstat(path, &s) == 0) {
-		// deal with obvious problems such as symlinks and root ownership
-		if (!S_ISDIR(s.st_mode)) {
-			if (S_ISLNK(s.st_mode))
-				fprintf(stderr, "Error: %s is a symbolic link\n", path);
-			else
-				fprintf(stderr, "Error: %s is not a directory\n", path);
-			exit(1);
-		}
-		if (s.st_uid != getuid()) {
-			fprintf(stderr, "Error: %s is not owned by the current user\n", path);
-			exit(1);
-		}
-
-		pid_t child = fork();
-		if (child < 0)
-			errExit("fork");
-		if (child == 0) {
-			// open ~/.firejail, fails if there is any symlink
-			int fd = safer_openat(-1, path, O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
-			if (fd == -1)
-				errExit("safer_openat");
-			// chdir to ~/.firejail
-			if (fchdir(fd) == -1)
-				errExit("fchdir");
-			close(fd);
-
-			EUID_ROOT();
-			// FTW_PHYS - do not follow symbolic links
-			if (nftw(".", remove_callback, 64, FTW_DEPTH | FTW_PHYS) == -1)
-				errExit("nftw");
-
-			EUID_USER();
-			// remove ~/.firejail
-			if (rmdir(path) == -1)
-				errExit("rmdir");
-#ifdef HAVE_GCOV
-			__gcov_flush();
-#endif
-			_exit(0);
-		}
-		// wait for the child to finish
-		waitpid(child, NULL, 0);
-		// check if ~/.firejail was deleted
-		if (stat(path, &s) == 0)
-			return 1;
-	}
-	return 0;
-}
 
 // flush stdin if it is connected to a tty and has input
 void flush_stdin(void) {
@@ -973,33 +987,34 @@ void flush_stdin(void) {
 int create_empty_dir_as_user(const char *dir, mode_t mode) {
 	assert(dir);
 	mode &= 07777;
-	struct stat s;
 
-	if (stat(dir, &s)) {
+	if (access(dir, F_OK) == 0)
+		return 0;
+
+	pid_t child = fork();
+	if (child < 0)
+		errExit("fork");
+	if (child == 0) {
+		// drop privileges
+		drop_privs(0);
+
 		if (arg_debug)
 			printf("Creating empty %s directory\n", dir);
-		pid_t child = fork();
-		if (child < 0)
-			errExit("fork");
-		if (child == 0) {
-			// drop privileges
-			drop_privs(0);
-
-			if (mkdir(dir, mode) == 0) {
-				if (chmod(dir, mode) == -1)
-					{;} // do nothing
-			}
-			else if (arg_debug)
-				printf("Directory %s not created: %s\n", dir, strerror(errno));
-#ifdef HAVE_GCOV
-			__gcov_flush();
-#endif
-			_exit(0);
+		if (mkdir(dir, mode) == 0) {
+			int err = chmod(dir, mode);
+			(void) err;
 		}
-		waitpid(child, NULL, 0);
-		if (stat(dir, &s) == 0)
-			return 1;
+		else if (arg_debug)
+			printf("Directory %s not created: %s\n", dir, strerror(errno));
+
+		__gcov_flush();
+
+		_exit(0);
 	}
+	waitpid(child, NULL, 0);
+
+	if (access(dir, F_OK) == 0)
+		return 1;
 	return 0;
 }
 
@@ -1014,12 +1029,14 @@ void create_empty_dir_as_root(const char *dir, mode_t mode) {
 		/* coverity[toctou] */
 		// don't fail if directory already exists. This can be the case in a race
 		// condition, when two jails launch at the same time. See #1013
-		if (mkdir(dir, mode) == -1 && errno != EEXIST)
+		mode_t tmp = umask(~mode); // let's avoid an extra chmod race
+		int rv = mkdir(dir, mode);
+		umask(tmp);
+		if (rv < 0 && errno != EEXIST)
 			errExit("mkdir");
-		if (set_perms(dir, 0, 0, mode))
-			errExit("set_perms");
-		ASSERT_PERMS(dir, 0, 0, mode);
 	}
+
+	ASSERT_PERMS(dir, 0, 0, mode);
 }
 
 void create_empty_file_as_root(const char *fname, mode_t mode) {
@@ -1033,12 +1050,15 @@ void create_empty_file_as_root(const char *fname, mode_t mode) {
 		/* coverity[toctou] */
 		// don't fail if file already exists. This can be the case in a race
 		// condition, when two jails launch at the same time. Compare to #1013
-		FILE *fp = fopen(fname, "we");
-		if (!fp)
-			errExit("fopen");
-		SET_PERMS_STREAM(fp, 0, 0, mode);
-		fclose(fp);
+		mode_t tmp = umask(~mode); // let's avoid an extra chmod race
+		int fd = open(fname, O_RDONLY|O_CREAT|O_CLOEXEC, mode);
+		umask(tmp);
+		if (fd < 0)
+			errExit("open");
+		close(fd);
 	}
+
+	ASSERT_PERMS(fname, 0, 0, mode);
 }
 
 // return 1 if error
@@ -1082,7 +1102,7 @@ void mkdir_attr(const char *fname, mode_t mode, uid_t uid, gid_t gid) {
 	if (mkdir(fname, mode) == -1 ||
 	    chmod(fname, mode) == -1 ||
 	    chown(fname, uid, gid)) {
-	    	fprintf(stderr, "Error: failed to create %s directory\n", fname);
+		fprintf(stderr, "Error: failed to create %s directory\n", fname);
 		errExit("mkdir/chmod");
 	}
 
@@ -1108,20 +1128,35 @@ unsigned extract_timeout(const char *str) {
 }
 
 void disable_file_or_dir(const char *fname) {
+	assert(geteuid() == 0);
+	assert(fname);
+
+	EUID_USER();
+	int fd = open(fname, O_PATH|O_CLOEXEC);
+	EUID_ROOT();
+	if (fd < 0)
+		return;
+
 	struct stat s;
-	if (stat(fname, &s) != -1) {
-		if (arg_debug)
-			printf("blacklist %s\n", fname);
-		if (is_dir(fname)) {
-			if (mount(RUN_RO_DIR, fname, "none", MS_BIND, "mode=400,gid=0") < 0)
-				errExit("disable directory");
-		}
-		else {
-			if (mount(RUN_RO_FILE, fname, "none", MS_BIND, "mode=400,gid=0") < 0)
-				errExit("disable file");
-		}
-		fs_logger2("blacklist", fname);
+	if (fstat(fd, &s) < 0) { // FUSE
+		if (errno != EACCES)
+			errExit("fstat");
+		close(fd);
+		return;
 	}
+
+	if (arg_debug)
+		printf("blacklist %s\n", fname);
+	if (S_ISDIR(s.st_mode)) {
+		if (bind_mount_path_to_fd(RUN_RO_DIR, fd) < 0)
+			errExit("disable directory");
+	}
+	else {
+		if (bind_mount_path_to_fd(RUN_RO_FILE, fd) < 0)
+			errExit("disable file");
+	}
+	close(fd);
+	fs_logger2("blacklist", fname);
 }
 
 void disable_file_path(const char *path, const char *file) {
@@ -1208,6 +1243,113 @@ int safer_openat(int dirfd, const char *path, int flags) {
 	return fd;
 }
 
+int remount_by_fd(int dst, unsigned long mountflags) {
+	char *proc;
+	if (asprintf(&proc, "/proc/self/fd/%d", dst) < 0)
+		errExit("asprintf");
+
+	int rv = mount(NULL, proc, NULL, mountflags|MS_BIND|MS_REMOUNT, NULL);
+	if (rv < 0 && arg_debug)
+		printf("Failed mount: %s\n", strerror(errno));
+
+	free(proc);
+	return rv;
+}
+
+int bind_mount_by_fd(int src, int dst) {
+	char *proc_src, *proc_dst;
+	if (asprintf(&proc_src, "/proc/self/fd/%d", src) < 0 ||
+	    asprintf(&proc_dst, "/proc/self/fd/%d", dst) < 0)
+		errExit("asprintf");
+
+	int rv = mount(proc_src, proc_dst, NULL, MS_BIND|MS_REC, NULL);
+	if (rv < 0 && arg_debug)
+		printf("Failed mount: %s\n", strerror(errno));
+
+	free(proc_src);
+	free(proc_dst);
+	return rv;
+}
+
+int bind_mount_fd_to_path(int src, const char *destname) {
+	char *proc;
+	if (asprintf(&proc, "/proc/self/fd/%d", src) < 0)
+		errExit("asprintf");
+
+	int rv = mount(proc, destname, NULL, MS_BIND|MS_REC, NULL);
+	if (rv < 0 && arg_debug)
+		printf("Failed mount: %s\n", strerror(errno));
+
+	free(proc);
+	return rv;
+}
+
+int bind_mount_path_to_fd(const char *srcname, int dst) {
+	char *proc;
+	if (asprintf(&proc, "/proc/self/fd/%d", dst) < 0)
+		errExit("asprintf");
+
+	int rv = mount(srcname, proc, NULL, MS_BIND|MS_REC, NULL);
+	if (rv < 0 && arg_debug)
+		printf("Failed mount: %s\n", strerror(errno));
+
+	free(proc);
+	return rv;
+}
+
+void close_all(int *keep_list, size_t sz) {
+	DIR *dir;
+	if (!(dir = opendir("/proc/self/fd"))) {
+		// sleep 2 seconds and try again
+		sleep(2);
+		if (!(dir = opendir("/proc/self/fd"))) {
+			fprintf(stderr, "Error: cannot open /proc/self/fd directory\n");
+			exit(1);
+		}
+	}
+	struct dirent *entry;
+	while ((entry = readdir(dir)) != NULL) {
+		if (strcmp(entry->d_name, ".") == 0 ||
+		    strcmp(entry->d_name, "..") == 0)
+			continue;
+
+		int fd = atoi(entry->d_name);
+
+		// don't close standard streams
+		if (fd == STDIN_FILENO ||
+		    fd == STDOUT_FILENO ||
+		    fd == STDERR_FILENO)
+			continue;
+
+		if (fd == dirfd(dir))
+			continue; // just postponed
+
+		// don't close file descriptors in keep list
+		int keep = 0;
+		if (keep_list) {
+			size_t i;
+			for (i = 0; i < sz; i++) {
+				if (keep_list[i] == fd) {
+					keep = 1;
+					break;
+				}
+			}
+		}
+		if (keep)
+			continue;
+
+#ifdef HAVE_LANDLOCK
+		// Don't close the file descriptor of the Landlock ruleset; it
+		// will be automatically closed by the "ll_restrict" wrapper
+		// function.
+		if (fd == ll_get_fd())
+			continue;
+#endif
+		close(fd);
+	}
+	closedir(dir);
+}
+
 int has_handler(pid_t pid, int signal) {
 	if (signal > 0 && signal <= SIGRTMAX) {
 		char *fname;
@@ -1218,8 +1360,8 @@ int has_handler(pid_t pid, int signal) {
 		EUID_USER();
 		free(fname);
 		if (fp) {
-			char buf[BUFLEN];
-			while (fgets(buf, BUFLEN, fp)) {
+			char buf[MAXBUF];
+			while (fgets(buf, MAXBUF, fp)) {
 				if (strncmp(buf, "SigCgt:", 7) == 0) {
 					unsigned long long val;
 					if (sscanf(buf + 7, "%llx", &val) != 1) {
@@ -1239,11 +1381,7 @@ int has_handler(pid_t pid, int signal) {
 }
 
 void enter_network_namespace(pid_t pid) {
-	// in case the pid is that of a firejail process, use the pid of the first child process
-	pid_t child = switch_to_child(pid);
-
-	// exit if no permission to join the sandbox
-	check_join_permission(child);
+	ProcessHandle sandbox = pin_sandbox_process(pid);
 
 	// check network namespace
 	char *name;
@@ -1254,13 +1392,15 @@ void enter_network_namespace(pid_t pid) {
 		fprintf(stderr, "Error: the sandbox doesn't use a new network namespace\n");
 		exit(1);
 	}
+	free(name);
 
 	// join the namespace
 	EUID_ROOT();
-	if (join_namespace(child, "net")) {
+	if (process_join_namespace(sandbox, "net")) {
 		fprintf(stderr, "Error: cannot join the network namespace\n");
 		exit(1);
 	}
+	unpin_process(sandbox);
 }
 
 // return 1 if error, 0 if a valid pid was found
@@ -1317,15 +1457,87 @@ static int has_link(const char *dir) {
 	return 0;
 }
 
-void check_homedir(void) {
-	assert(cfg.homedir);
-	if (cfg.homedir[0] != '/') {
-		fprintf(stderr, "Error: invalid user directory \"%s\"\n", cfg.homedir);
+int ascii_isalnum(unsigned char c) {
+	return (ascii_isalpha(c) || ascii_isdigit(c));
+}
+
+int ascii_isalpha(unsigned char c) {
+	return (ascii_islower(c) || ascii_isupper(c));
+}
+
+int ascii_isdigit(unsigned char c) {
+	return (c >= '0' && c <= '9');
+}
+
+int ascii_islower(unsigned char c) {
+	return (c >= 'a' && c <= 'z');
+}
+
+int ascii_isupper(unsigned char c) {
+	return (c >= 'A' && c <= 'Z');
+}
+
+int ascii_isxdigit(unsigned char c) {
+	int ret = (ascii_isdigit(c) ||
+	          (c >= 'a' && c <= 'f') ||
+	          (c >= 'A' && c <= 'F'));
+	return ret;
+}
+
+// Note: Keep this in sync with NAME VALIDATION in src/man/firejail.1.in.
+//
+// Allow only ASCII letters, digits and a few special characters; names with
+// only numbers are rejected; spaces and control characters are rejected.
+int invalid_name(const char *name) {
+	const char *c = name;
+	int only_numbers = 1;
+
+	if (strlen(name) > 253)
+		return 1;
+
+	// must start with alnum
+	if (!ascii_isalnum(*c))
+		return 1;
+	if (!ascii_isdigit(*c))
+		only_numbers = 0;
+	++c;
+
+	while (*c) {
+		switch (*c) {
+		case '-':
+		case '.':
+		case '_':
+			only_numbers = 0;
+			break;
+		default:
+			if (!ascii_isalnum(*c))
+				return 1;
+			if (!ascii_isdigit(*c))
+				only_numbers = 0;
+		}
+		++c;
+	}
+
+	// must end with alnum
+	--c;
+	if (!ascii_isalnum(*c))
+		return 1;
+
+	if (only_numbers)
+		return 1;
+
+	return 0;
+}
+
+
+void check_homedir(const char *dir) {
+	assert(dir);
+	if (dir[0] != '/') {
+		fprintf(stderr, "Error: invalid user directory \"%s\"\n", dir);
 		exit(1);
 	}
 	// symlinks are rejected in many places
-	if (has_link(cfg.homedir)) {
-		fprintf(stderr, "No full support for symbolic links in path of user directory.\n"
+	if (has_link(dir))
+		fmessage("No full support for symbolic links in path of user directory.\n"
 			"Please provide resolved path in password database (/etc/passwd).\n\n");
-	}
 }

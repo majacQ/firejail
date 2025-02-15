@@ -8,6 +8,7 @@ include globals.local
 noblacklist ${HOME}/.config/uzbl
 noblacklist ${HOME}/.gnupg
 noblacklist ${HOME}/.local/share/uzbl
+noblacklist ${HOME}/.password-store
 
 # Allow python (blacklisted by disable-interpreters.inc)
 include allow-python2.inc
@@ -38,3 +39,5 @@ notv
 protocol unix,inet,inet6
 seccomp
 tracelog
+
+restrict-namespaces

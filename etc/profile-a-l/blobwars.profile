@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -20,6 +19,7 @@ include disable-xdg.inc
 mkdir ${HOME}/.parallelrealities/blobwars
 whitelist ${HOME}/.parallelrealities/blobwars
 whitelist /usr/share/blobwars
+whitelist /usr/share/games/blobwars
 include whitelist-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
@@ -29,7 +29,6 @@ caps.drop all
 net none
 nodvd
 nogroups
-noinput
 nonewprivs
 noroot
 notv
@@ -37,15 +36,16 @@ nou2f
 novideo
 protocol unix,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin blobwars
 private-cache
 private-dev
-private-etc machine-id
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

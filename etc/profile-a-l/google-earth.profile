@@ -12,13 +12,13 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.config/Google
 mkdir ${HOME}/.googleearth
 whitelist ${HOME}/.config/Google
 whitelist ${HOME}/.googleearth
+whitelist /opt/google
 include whitelist-common.inc
 
 caps.drop all
@@ -34,10 +34,9 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 disable-mnt
 private-bin bash,dirname,google-earth,grep,ls,sed,sh
 private-dev
-private-opt google
 
+restrict-namespaces

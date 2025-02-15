@@ -12,12 +12,11 @@ noblacklist ${HOME}/.config/gnome-pie
 include disable-devel.inc
 include disable-exec.inc
 #include disable-interpreters.inc
-include disable-passwdmgr.inc
 #include disable-programs.inc
 
 caps.drop all
 ipc-namespace
-# net none - breaks dbus
+#net none # breaks dbus
 no3d
 nodvd
 nogroups
@@ -30,13 +29,13 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 
 disable-mnt
 private-cache
 private-dev
-private-etc alternatives,fonts,machine-id
+private-etc
 private-lib gdk-pixbuf-2.*,gio,gvfs/libgvfscommon.so,libgconf-2.so.*,librsvg-2.so.*
 private-tmp
 
 memory-deny-write-execute
+restrict-namespaces

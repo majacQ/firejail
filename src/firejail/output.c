@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -50,16 +50,24 @@ void check_output(int argc, char **argv) {
 	if (!outindex)
 		return;
 
-
-	// check filename
 	drop_privs(0);
 	char *outfile = argv[outindex];
 	outfile += (enable_stderr)? 16:9;
+
+	// check filename
 	invalid_filename(outfile, 0); // no globbing
 
+	// expand user home directory
+	if (outfile[0] == '~') {
+		char *full;
+		if (asprintf(&full, "%s%s", cfg.homedir, outfile + 1) == -1)
+			errExit("asprintf");
+		outfile = full;
+	}
+
 	// do not accept directories, links, and files with ".."
-	if (strstr(outfile, "..") || is_link(outfile) || is_dir(outfile)) {
-		fprintf(stderr, "Error: invalid output file. Links, directories and files with \"..\" are not allowed.\n");
+	if (strstr(outfile, "..") || is_link(outfile) || is_dir(outfile) || has_cntrl_chars(outfile)) {
+		fprintf(stderr, "Error: invalid output file. Links, directories, files with \"..\" and control characters in filenames are not allowed.\n");
 		exit(1);
 	}
 

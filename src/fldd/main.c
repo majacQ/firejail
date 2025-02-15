@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -20,6 +20,7 @@
 
 #include "../include/common.h"
 #include "../include/ldd_utils.h"
+#ifdef HAVE_PRIVATE_LIB
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -193,9 +194,9 @@ static void parse_elf(const char *exe) {
 	}
 	goto close;
 
- error_close:
+error_close:
 	perror("copy libs");
- close:
+close:
 	if (base)
 		munmap(base, s.st_size);
 
@@ -261,23 +262,33 @@ static void walk_directory(const char *dirname) {
 
 			// check directory
 			// entry->d_type field is supported  in glibc since version 2.19 (Feb 2014)
-			// we'll use stat to check for directories
+			// we'll use stat to check for directories using the real path
+			// (sometimes the path is a double symlink to a real file and stat would fail)
+			char *rpath = realpath(path, NULL);
+			if (!rpath) {
+				free(path);
+				continue;
+			}
+			free(path);
+
 			struct stat s;
-			if (stat(path, &s) == -1)
+			if (stat(rpath, &s) == -1)
 				errExit("stat");
 			if (S_ISDIR(s.st_mode))
-				walk_directory(path);
+				walk_directory(rpath);
+			free(rpath);
 		}
 		closedir(dir);
 	}
 }
 
-
+static const char *const usage_str =
+	"Usage: fldd program_or_directory [file]\n"
+	"Print a list of libraries used by program or store it in the file.\n"
+	"Print a list of libraries used by all .so files in a directory or store it in the file.\n";
 
 static void usage(void) {
-	printf("Usage: fldd program_or_directory [file]\n");
-	printf("Print a list of libraries used by program or store it in the file.\n");
-	printf("Print a list of libraries used by all .so files in a directory or store it in the file.\n");
+	puts(usage_str);
 }
 
 int main(int argc, char **argv) {
@@ -286,7 +297,7 @@ int main(int argc, char **argv) {
 //system("cat /proc/self/status");
 int i;
 for (i = 0; i < argc; i++)
-        printf("*%s* ", argv[i]);
+	printf("*%s* ", argv[i]);
 printf("\n");
 }
 #endif
@@ -348,3 +359,9 @@ printf("\n");
 		close(fd);
 	return 0;
 }
+#else
+int main(void) {
+	printf("Sorry, private lib is disabled in this build\n");
+	return 0;
+}
+#endif

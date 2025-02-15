@@ -22,7 +22,6 @@ include allow-python3.inc
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 whitelist /var/lib/xkb
@@ -43,13 +42,14 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 
 disable-mnt
 # private home directory doesn't work on some distros, so we go for a regular home
-# private
+#private
 # older Xpra versions also use Xvfb
-# private-bin bash,cat,dbus-launch,ldconfig,ls,pactl,python*,sh,strace,which,xauth,xkbcomp,Xorg,xpra,Xvfb
+#private-bin bash,cat,dbus-launch,ldconfig,ls,pactl,python*,sh,strace,which,xauth,xkbcomp,Xorg,xpra,Xvfb
 private-dev
-# private-etc alternatives,gai.conf,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,machine-id,nsswitch.conf,resolv.conf,X11,xpra
+#private-etc alternatives,gai.conf,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,machine-id,nsswitch.conf,resolv.conf,X11,xpra
 private-tmp
+
+restrict-namespaces

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -22,9 +22,11 @@
 #define MAXBUF 4098
 
 typedef struct macro_t {
-	char *name;	// macro name
+	char *name;		// macro name
 	char *xdg;		// xdg line in ~/.config/user-dirs.dirs
-#define MAX_TRANSLATIONS 3	// several translations in case ~/.config/user-dirs.dirs not found
+	// several translations in case ~/.config/user-dirs.dirs not found
+	// covered currently: English, Russian, French, Italian, Spanish, Portuguese, German
+#define MAX_TRANSLATIONS 7
 	char *translation[MAX_TRANSLATIONS];
 } Macro;
 
@@ -32,37 +34,37 @@ Macro macro[] = {
 	{
 		"${DOWNLOADS}",
 		"XDG_DOWNLOAD_DIR=\"$HOME/",
-		{ "Downloads", "Загрузки", "Téléchargement" }
+		{"Downloads", "Загрузки", "Téléchargement", "Scaricati", "Descargas"}
 	},
 
 	{
-	 	"${MUSIC}",
+		"${MUSIC}",
 		"XDG_MUSIC_DIR=\"$HOME/",
-		{"Music", "Музыка", "Musique"}
+		{"Music", "Музыка", "Musique", "Musica", "Música", "Musik"}
 	},
 
 	{
-	 	"${VIDEOS}",
+		"${VIDEOS}",
 		"XDG_VIDEOS_DIR=\"$HOME/",
-		{"Videos", "Видео", "Vidéos"}
+		{"Videos", "Видео", "Vidéos", "Video", "Vídeos"}
 	},
 
 	{
-	 	"${PICTURES}",
+		"${PICTURES}",
 		"XDG_PICTURES_DIR=\"$HOME/",
-		{"Pictures", "Изображения", "Photos"}
+		{"Pictures", "Изображения", "Photos", "Immagini", "Imágenes", "Imagens", "Bilder"}
 	},
 
 	{
 		"${DESKTOP}",
 		"XDG_DESKTOP_DIR=\"$HOME/",
-		{"Desktop", "Рабочий стол", "Bureau"}
+		{"Desktop", "Рабочий стол", "Bureau", "Scrivania", "Escritorio", "Área de trabalho", "Schreibtisch"}
 	},
 
 	{
 		"${DOCUMENTS}",
 		"XDG_DOCUMENTS_DIR=\"$HOME/",
-		{"Documents", "Документы", "Documents"}
+		{"Documents", "Документы", "Documenti", "Documentos", "Dokumente"}
 	},
 
 	{ 0 }
@@ -149,11 +151,12 @@ static char *resolve_xdg(const char *var) {
 
 // returns mallocated memory
 static char *resolve_hardcoded(char *entries[]) {
+	EUID_ASSERT();
 	char *fname;
 	struct stat s;
 
 	int i = 0;
-	while (entries[i] != NULL) {
+	while (i < MAX_TRANSLATIONS && entries[i] != NULL) {
 		if (asprintf(&fname, "%s/%s", cfg.homedir, entries[i]) == -1)
 			errExit("asprintf");
 
@@ -262,28 +265,6 @@ char *expand_macros(const char *path) {
 	return rv;
 }
 
-// replace control characters with a '?'
-static char *fix_control_chars(const char *fname) {
-	assert(fname);
-
-	size_t len = strlen(fname);
-	char *rv = malloc(len + 1);
-	if (!rv)
-		errExit("malloc");
-
-	size_t i = 0;
-	while (fname[i] != '\0') {
-		if (iscntrl((unsigned char) fname[i]))
-			rv[i] = '?';
-		else
-			rv[i] = fname[i];
-		i++;
-	}
-	rv[i] = '\0';
-
-	return rv;
-}
-
 void invalid_filename(const char *fname, int globbing) {
 //	EUID_ASSERT();
 	assert(fname);
@@ -301,24 +282,5 @@ void invalid_filename(const char *fname, int globbing) {
 			return;
 	}
 
-	size_t i = 0;
-	while (ptr[i] != '\0') {
-		if (iscntrl((unsigned char) ptr[i])) {
-			char *new = fix_control_chars(fname);
-			fprintf(stderr, "Error: \"%s\" is an invalid filename: no control characters allowed\n", new);
-			exit(1);
-		}
-		i++;
-	}
-
-	char *reject;
-	if (globbing)
-		reject = "\\&!\"'<>%^{};,"; // file globbing ('*?[]') is allowed
-	else
-		reject = "\\&!?\"'<>%^{};,*[]";
-	char *c = strpbrk(ptr, reject);
-	if (c) {
-		fprintf(stderr, "Error: \"%s\" is an invalid filename: rejected character: \"%c\"\n", fname, *c);
-		exit(1);
-	}
+	reject_meta_chars(ptr, globbing);
 }

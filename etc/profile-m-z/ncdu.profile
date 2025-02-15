@@ -1,6 +1,7 @@
 # Firejail profile for ncdu
 # Description: Ncurses disk usage viewer
 # This file is overwritten after every install/update
+quiet
 # Persistent local customizations
 include ncdu.local
 # Persistent global definitions
@@ -25,13 +26,13 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 x11 none
 
 private-dev
-# private-tmp
+#private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

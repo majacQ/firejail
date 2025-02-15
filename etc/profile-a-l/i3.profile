@@ -8,11 +8,16 @@ include globals.local
 
 # all applications started in i3 will run in this profile
 noblacklist ${HOME}/.config/i3
+noblacklist ${RUNUSER}/i3
+noblacklist ${RUNUSER}/i3/ipc-socket.*
+noblacklist /tmp/i3-*
+noblacklist /tmp/i3-*/ipc-socket.*
 include disable-common.inc
 
 caps.drop all
 netfilter
 noroot
 protocol unix,inet,inet6
-seccomp
+seccomp !chroot
 
+#restrict-namespaces

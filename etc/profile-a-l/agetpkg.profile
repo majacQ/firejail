@@ -7,7 +7,6 @@ include agetpkg.local
 # Persistent global definitions
 include globals.local
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}/wayland-*
 
 # Allow python (blacklisted by disable-interpreters.inc)
@@ -18,9 +17,9 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
+include disable-x11.inc
 include disable-xdg.inc
 
 whitelist ${DOWNLOADS}
@@ -29,7 +28,6 @@ include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
 
 caps.drop all
-hostname agetpkg
 ipc-namespace
 machine-id
 netfilter
@@ -45,16 +43,16 @@ nou2f
 novideo
 protocol inet,inet6
 seccomp
-shell none
 tracelog
 
 private-bin agetpkg,python3
 private-cache
 private-dev
-private-etc ca-certificates,crypto-policies,pki,resolv.conf,ssl
+private-etc @tls-ca
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

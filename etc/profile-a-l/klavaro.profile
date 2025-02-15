@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -39,17 +38,18 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin bash,klavaro,sh,tclsh,tclsh*
 private-cache
 private-dev
-private-etc alternatives,fonts
+private-etc
 private-tmp
 private-opt none
 private-srv none
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

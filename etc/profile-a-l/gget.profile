@@ -7,16 +7,15 @@ include gget.local
 # Persistent global definitions
 include globals.local
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
+include disable-x11.inc
 include disable-xdg.inc
 
 whitelist ${DOWNLOADS}
@@ -43,14 +42,13 @@ novideo
 protocol inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin gget
 private-cache
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,pki,resolv.conf,ssl
+private-etc @tls-ca
 private-lib
 private-tmp
 
@@ -58,3 +56,4 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -31,7 +31,7 @@ void process_home(const char *fname, char *home, int home_len) {
 	// process trace file
 	FILE *fp = fopen(fname, "r");
 	if (!fp) {
-		fprintf(stderr, "Error: cannot open %s\n", fname);
+		fprintf(stderr, "Error fbuilder: cannot open %s\n", fname);
 		exit(1);
 	}
 
@@ -68,6 +68,8 @@ void process_home(const char *fname, char *home, int home_len) {
 			ptr += 7;
 		else if (strncmp(ptr, "open /home", 10) == 0)
 			ptr += 5;
+		else if (strncmp(ptr, "opendir /home", 13) == 0)
+			ptr += 8;
 		else
 			continue;
 
@@ -93,6 +95,9 @@ void process_home(const char *fname, char *home, int home_len) {
 		    strcmp(ptr, ".bashrc") == 0)
 			continue;
 
+		// skip flatpak files
+		if (strncmp(ptr, ".local/share/flatpak", 20) == 0)
+			continue;
 
 		// try to find the relevant directory for this file
 		char *dir = extract_dir(ptr);
@@ -105,7 +110,7 @@ void process_home(const char *fname, char *home, int home_len) {
 		    strcmp(toadd, ".cache") == 0) {
 			if (dir)
 				free(dir);
-		    	continue;
+			continue;
 		}
 
 		// clean .cache entries

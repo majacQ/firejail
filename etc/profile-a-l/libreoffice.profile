@@ -9,17 +9,29 @@ include globals.local
 noblacklist /usr/local/sbin
 noblacklist ${HOME}/.config/libreoffice
 
+# libreoffice can sign documents with GPG
+noblacklist ${HOME}/.gnupg
+read-only ${HOME}/.gnupg/trustdb.gpg
+read-only ${HOME}/.gnupg/pubring.kbx
+blacklist ${HOME}/.gnupg/crls.d
+blacklist ${HOME}/.gnupg/openpgp-revocs.d
+blacklist ${HOME}/.gnupg/private-keys-v1.d
+blacklist ${HOME}/.gnupg/pubring.kbx~
+blacklist ${HOME}/.gnupg/random_seed
+
 # libreoffice uses java for some functionality.
 # Add 'ignore include allow-java.inc' to your libreoffice.local if you don't need that functionality.
 # Allow java (blacklisted by disable-devel.inc)
 include allow-java.inc
 
+blacklist /usr/libexec
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
+include whitelist-run-common.inc
 include whitelist-var-common.inc
 
 # Debian 10/Ubuntu 18.04 come with their own apparmor profile, but it is not in enforce mode.
@@ -43,14 +55,15 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 #private-bin libreoffice,sh,uname,dirname,grep,sed,basename,ls
 private-cache
 private-dev
+private-etc @tls-ca,@x11,cups,gnupg,libreoffice,papersize,ssh
 private-tmp
 
 dbus-system none
 
+restrict-namespaces
 join-or-start libreoffice

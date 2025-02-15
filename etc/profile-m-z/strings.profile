@@ -13,7 +13,6 @@ blacklist ${RUNUSER}
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 #include disable-programs.inc
 include disable-shell.inc
 #include disable-xdg.inc
@@ -39,7 +38,6 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 x11 none
 
@@ -56,3 +54,4 @@ dbus-system none
 
 memory-deny-write-execute
 read-only ${HOME}
+restrict-namespaces

@@ -13,8 +13,7 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
-# include disable-programs.inc
+#include disable-programs.inc
 include disable-shell.inc
 
 include whitelist-runuser-common.inc
@@ -32,7 +31,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 private-bin gjs,sushi
@@ -47,3 +45,4 @@ read-only /media
 read-only /run/mount
 read-only /run/media
 read-only ${HOME}
+restrict-namespaces

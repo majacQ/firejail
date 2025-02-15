@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 #include "firemon.h"
+#include "../include/gcov_wrapper.h"
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -46,7 +47,7 @@ static char *get_user_name(uid_t uid) {
 
 static char *get_header(void) {
 	char *rv;
-	if (asprintf(&rv, "%-5.5s %-9.9s %-10.10s %-10.10s %s",
+	if (asprintf(&rv, "%-7.7s %-9.9s %-10.10s %-10.10s %s",
 		"PID", "User", "RX(KB/s)", "TX(KB/s)", "Command") == -1)
 		errExit("asprintf");
 
@@ -105,10 +106,8 @@ void get_stats(int parent) {
 	}
 
 	// store data
-	pids[parent].rx_delta = rx - pids[parent].rx;
-	pids[parent].rx = rx;
-	pids[parent].tx_delta = tx - pids[parent].tx;
-	pids[parent].tx = tx;
+	pids[parent].option.netstats.rx = rx - pids[parent].option.netstats.rx;
+	pids[parent].option.netstats.tx = tx - pids[parent].option.netstats.tx;
 
 
 	free(fname);
@@ -116,10 +115,8 @@ void get_stats(int parent) {
 	return;
 
 errexit:
-	pids[parent].rx = 0;
-	pids[parent].tx = 0;
-	pids[parent].rx_delta = 0;
-	pids[parent].tx_delta = 0;
+	pids[parent].option.netstats.rx = 0;
+	pids[parent].option.netstats.tx = 0;
 }
 
 
@@ -155,10 +152,12 @@ static void print_proc(int index, int itv, int col) {
 	struct stat s;
 	if (stat(name, &s) == -1) {
 		// the sandbox doesn't have a --net= option, don't print
+		free(name);
 		if (cmd)
 			free(cmd);
 		return;
 	}
+	free(name);
 
 	// pid
 	char pidstr[11];
@@ -173,16 +172,16 @@ static void print_proc(int index, int itv, int col) {
 		ptruser = "";
 
 
-	float rx_kbps = ((float) pids[index].rx_delta / 1000) / itv;
+	float rx_kbps = ((float) pids[index].option.netstats.rx / 1000) / itv;
 	char ptrrx[15];
 	sprintf(ptrrx, "%.03f", rx_kbps);
 
-	float tx_kbps = ((float) pids[index].tx_delta / 1000) / itv;
+	float tx_kbps = ((float) pids[index].option.netstats.tx / 1000) / itv;
 	char ptrtx[15];
 	sprintf(ptrtx, "%.03f", tx_kbps);
 
 	char buf[1024 + 1];
-	snprintf(buf, 1024, "%-5.5s %-9.9s %-10.10s %-10.10s %s",
+	snprintf(buf, 1024, "%-7.7s %-9.9s %-10.10s %-10.10s %s",
 		pidstr, ptruser, ptrrx, ptrtx, ptrcmd);
 	if (col < 1024)
 		buf[col] = '\0';
@@ -204,7 +203,7 @@ void netstats(void) {
 	while (1) {
 		// set pid table
 		int i;
-		int itv = 1; 	// 1 second  interval
+		int itv = 3; 	// 3 second interval
 		pid_read(0);
 
 		// start rx/tx measurements
@@ -242,8 +241,7 @@ void netstats(void) {
 				print_proc(i, itv, col);
 			}
 		}
-#ifdef HAVE_GCOV
-			__gcov_flush();
-#endif
+
+		__gcov_flush();
 	}
 }

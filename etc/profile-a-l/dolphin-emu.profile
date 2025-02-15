@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-write-mnt.inc
 include disable-xdg.inc
@@ -37,7 +36,7 @@ apparmor
 caps.drop all
 ipc-namespace
 # Add the next line to your dolphin-emu.local if you do not need NetPlay support.
-# net none
+#net none
 netfilter
 # Add the next line to your dolphin-emu.local if you do not need disc support.
 #nodvd
@@ -49,16 +48,17 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink,bluetooth
 seccomp
-shell none
 tracelog
 
 private-bin bash,dolphin-emu,dolphin-emu-x11,sh
 private-cache
 # Add the next line to your dolphin-emu.local if you do not need controller support.
 #private-dev
-private-etc alsa,alternatives,asound.conf,bumblebee,ca-certificates,crypto-policies,dconf,drirc,fonts,gconf,glvnd,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,kde4rc,kde5rc,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,machine-id,mime.types,nsswitch.conf,nvidia,pango,pki,protocols,pulse,resolv.conf,rpc,services,ssl,Trolltech.conf,X11,xdg
+private-etc @tls-ca,@x11,bumblebee,gconf,glvnd,host.conf,mime.types,rpc,services
 private-opt none
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

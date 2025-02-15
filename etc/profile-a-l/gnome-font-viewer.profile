@@ -6,12 +6,10 @@ include gnome-font-viewer.local
 # Persistent global definitions
 include globals.local
 
-
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -36,3 +34,4 @@ disable-mnt
 private-dev
 private-tmp
 
+restrict-namespaces

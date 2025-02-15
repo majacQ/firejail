@@ -2,7 +2,7 @@
 # This file is overwritten after every install/update
 quiet
 # Persistent local customizations
-include clamav.local
+include freshclam.local
 # Persistent global definitions
 include globals.local
 
@@ -22,7 +22,6 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
@@ -34,3 +33,4 @@ writable-var
 writable-var-log
 
 memory-deny-write-execute
+restrict-namespaces

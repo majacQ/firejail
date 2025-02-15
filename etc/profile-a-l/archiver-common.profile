@@ -17,14 +17,12 @@ blacklist ${RUNUSER}
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 # Add the next line to your archiver-common.local if you don't need to compress files in disable-programs.inc.
 #include disable-programs.inc
 include disable-shell.inc
 
 apparmor
 caps.drop all
-hostname archiver
 ipc-namespace
 machine-id
 net none
@@ -40,14 +38,15 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
 private-cache
 private-dev
+private-etc mkinitcpio*
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

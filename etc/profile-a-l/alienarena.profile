@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -30,7 +29,6 @@ caps.drop all
 netfilter
 nodvd
 nogroups
-noinput
 nonewprivs
 noroot
 notv
@@ -39,15 +37,16 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin alienarena
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,bumblebee,ca-certificates,crypto-policies,drirc,fonts,glvnd,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,machine-id,nsswitch.conf,nvidia,pango,pki,protocols,pulse,resolv.conf,rpc,services,ssl,X11
+private-etc @tls-ca,@x11,bumblebee,glvnd,host.conf,rpc,services
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -49,6 +49,7 @@ void firemon_sleep(int st);
 void procevent(pid_t pid) __attribute__((noreturn));
 
 // usage.c
+void print_version(void);
 void usage(void);
 
 // top.c
@@ -56,9 +57,6 @@ void top(void) __attribute__((noreturn));
 
 // list.c
 void list(void);
-
-// interface.c
-void interface(pid_t pid, int print_procs);
 
 // arp.c
 void arp(pid_t pid, int print_procs);
@@ -74,9 +72,6 @@ void seccomp(pid_t pid, int print_procs);
 
 // cpu.c
 void cpu(pid_t pid, int print_procs);
-
-// cgroup.c
-void cgroup(pid_t pid, int print_procs);
 
 // tree.c
 void tree(pid_t pid);

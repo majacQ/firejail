@@ -14,7 +14,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -46,17 +45,18 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin com.github.phase1geo.minder
 private-cache
 private-dev
-private-etc alternatives,dconf,fonts,gtk-3.0,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,mime.types,pango,passwd,X11,xdg
+private-etc @x11,mime.types
 private-tmp
 
 dbus-user filter
 dbus-user.own com.github.phase1geo.minder
 dbus-user.talk ca.desrt.dconf
 dbus-system none
+
+restrict-namespaces

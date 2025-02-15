@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -27,7 +27,7 @@
 
 static int prog_cnt = 0;
 
-static char *paths[] = {
+static const char * const paths[] = {
 	"/usr/local/bin",
 	"/usr/bin",
 	"/bin",
@@ -40,10 +40,10 @@ static char *paths[] = {
 };
 
 // return 1 if found, 0 if not found
-static char *check_dir_or_file(const char *name) {
+static const char *check_dir_or_file(const char *name) {
+	EUID_ASSERT();
 	assert(name);
 	struct stat s;
-	char *fname = NULL;
 
 	int i = 0;
 	while (paths[i]) {
@@ -54,50 +54,34 @@ static char *check_dir_or_file(const char *name) {
 		}
 
 		// check file
+		char *fname;
 		if (asprintf(&fname, "%s/%s", paths[i], name) == -1)
 			errExit("asprintf");
 		if (arg_debug)
 			printf("Checking %s/%s\n", paths[i], name);
-		if (stat(fname, &s) == 0 && !S_ISDIR(s.st_mode)) { // do not allow directories
-			// check symlink to firejail executable in /usr/local/bin
-			if (strcmp(paths[i], "/usr/local/bin") == 0 && is_link(fname)) {
-				/* coverity[toctou] */
-				char *actual_path = realpath(fname, NULL);
-				if (actual_path) {
-					char *ptr = strstr(actual_path, "/firejail");
-					if (ptr && strlen(ptr) == strlen("/firejail")) {
-						if (arg_debug)
-							printf("firejail exec symlink detected\n");
-						free(actual_path);
-						free(fname);
-						fname = NULL;
-						i++;
-						continue;
-					}
-					free(actual_path);
-				}
-
-			}
+		if (stat(fname, &s) == 0 &&
+		    !S_ISDIR(s.st_mode) &&	// do not allow directories
+		    !is_firejail_link(fname)) {	// skip symlinks to firejail executable, as created by firecfg
+			free(fname);
 			break; // file found
 		}
 
 		free(fname);
-		fname = NULL;
 		i++;
 	}
 
-	if (!fname) {
+	if (!paths[i]) {
 		if (arg_debug)
 			fwarning("file %s not found\n", name);
 		return NULL;
 	}
 
-	free(fname);
 	return paths[i];
 }
 
 // return 1 if the file is in paths[]
 static int valid_full_path_file(const char *name) {
+	EUID_ASSERT();
 	assert(name);
 
 	if (*name != '/')
@@ -149,6 +133,7 @@ static void report_duplication(const char *fname) {
 }
 
 static void duplicate(char *fname) {
+	EUID_ASSERT();
 	assert(fname);
 
 	if (*fname == '~' || strstr(fname, "..")) {
@@ -175,7 +160,7 @@ static void duplicate(char *fname) {
 	else {
 		// Find the standard directory (by looping through paths[])
 		// where the filename fname is located
-		char *path = check_dir_or_file(fname);
+		const char *path = check_dir_or_file(fname);
 		if (!path)
 			return;
 		if (asprintf(&full_path, "%s/%s", path, fname) == -1)
@@ -220,6 +205,7 @@ static void duplicate(char *fname) {
 }
 
 static void globbing(char *fname) {
+	EUID_ASSERT();
 	assert(fname);
 
 	// go directly to duplicate() if no globbing char is present - see man 7 glob
@@ -256,6 +242,9 @@ static void globbing(char *fname) {
 			// testing for GLOB_NOCHECK - no pattern matched returns the original pattern
 			if (strcmp(globbuf.gl_pathv[j], pattern) == 0)
 				continue;
+			// skip symlinks to firejail executable, as created by firecfg
+			if (is_firejail_link(globbuf.gl_pathv[j]))
+				continue;
 
 			duplicate(globbuf.gl_pathv[j]);
 		}
@@ -267,6 +256,7 @@ static void globbing(char *fname) {
 }
 
 void fs_private_bin_list(void) {
+	EUID_ASSERT();
 	char *private_list = cfg.bin_private_keep;
 	assert(private_list);
 
@@ -274,7 +264,9 @@ void fs_private_bin_list(void) {
 	timetrace_start();
 
 	// create /run/firejail/mnt/bin directory
+	EUID_ROOT();
 	mkdir_attr(RUN_BIN_DIR, 0755, 0, 0);
+	EUID_USER();
 
 	if (arg_debug)
 		printf("Copying files in the new bin directory\n");
@@ -293,9 +285,9 @@ void fs_private_bin_list(void) {
 	while ((ptr = strtok(NULL, ",")) != NULL)
 		globbing(ptr);
 	free(dlist);
-	fs_logger_print();
 
 	// mount-bind
+	EUID_ROOT();
 	int i = 0;
 	while (paths[i]) {
 		struct stat s;
@@ -309,6 +301,9 @@ void fs_private_bin_list(void) {
 		}
 		i++;
 	}
+	fs_logger_print();
+	EUID_USER();
+
 	selinux_relabel_path(RUN_BIN_DIR, "/bin");
 	fmessage("%d %s installed in %0.2f ms\n", prog_cnt, (prog_cnt == 1)? "program": "programs", timetrace_end());
 }

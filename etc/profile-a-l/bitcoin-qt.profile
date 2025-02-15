@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -39,7 +38,6 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 private-bin bitcoin-qt
@@ -49,3 +47,4 @@ private-dev
 private-tmp
 
 memory-deny-write-execute
+restrict-namespaces

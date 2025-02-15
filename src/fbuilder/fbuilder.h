@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -26,11 +26,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <fnmatch.h>
 
 #define MAX_BUF 4096
 // main.c
 extern int arg_debug;
+extern int arg_appimage;
 
 // build_profile.c
 void build_profile(int argc, char **argv, int index, FILE *fp);
@@ -45,6 +46,8 @@ void build_var(const char *fname, FILE *fp);
 void build_tmp(const char *fname, FILE *fp);
 void build_dev(const char *fname, FILE *fp);
 void build_share(const char *fname, FILE *fp);
+void build_run(const char *fname, FILE *fp);
+void build_runuser(const char *fname, FILE *fp);
 
 // build_bin.c
 void build_bin(const char *fname, FILE *fp);
@@ -60,7 +63,7 @@ char *extract_dir(char *fname);
 typedef struct filedb_t {
 	struct filedb_t *next;
 	char *fname;	// file name
-	int len;		// length of file name
+	unsigned len;	// length of file name
 } FileDB;
 
 FileDB *filedb_add(FileDB *head, const char *fname);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -23,8 +23,10 @@
 #include <unistd.h>
 #include <net/if.h>
 #include <stdarg.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include "../include/seccomp.h"
+#include "../include/gcov_wrapper.h"
 
 #include <fcntl.h>
 #ifndef O_PATH
@@ -72,11 +74,8 @@ static int __attribute__((noreturn)) sbox_do_exec_v(unsigned filtermask, char * 
 	}
 
 	// close all other file descriptors
-	if ((filtermask & SBOX_KEEP_FDS) == 0) {
-		int i;
-		for (i = 3; i < FIREJAIL_MAX_FD; i++)
-			close(i); // close open files
-	}
+	if ((filtermask & SBOX_KEEP_FDS) == 0)
+		close_all(NULL, 0);
 
 	umask(027);
 
@@ -133,6 +132,24 @@ static int __attribute__((noreturn)) sbox_do_exec_v(unsigned filtermask, char * 
 #ifdef SYS_umount2
 			BLACKLIST(SYS_umount2),
 #endif
+#ifdef SYS_fsopen
+			BLACKLIST(SYS_fsopen), // mount syscalls introduced 2019
+#endif
+#ifdef SYS_fsconfig
+			BLACKLIST(SYS_fsconfig),
+#endif
+#ifdef SYS_fsmount
+			BLACKLIST(SYS_fsmount),
+#endif
+#ifdef SYS_move_mount
+			BLACKLIST(SYS_move_mount),
+#endif
+#ifdef SYS_fspick
+			BLACKLIST(SYS_fspick),
+#endif
+#ifdef SYS_open_tree
+			BLACKLIST(SYS_open_tree),
+#endif
 #ifdef SYS_ptrace
 			BLACKLIST(SYS_ptrace), // trace processes
 #endif
@@ -187,6 +204,9 @@ static int __attribute__((noreturn)) sbox_do_exec_v(unsigned filtermask, char * 
 #ifdef SYS_syslog
 			BLACKLIST(SYS_syslog), // kernel printk control
 #endif
+#ifdef SYS_personality
+			BLACKLIST(SYS_personality), // execution domain
+#endif
 			RETURN_ALLOW
 		};
 
@@ -206,6 +226,11 @@ static int __attribute__((noreturn)) sbox_do_exec_v(unsigned filtermask, char * 
 	if (filtermask & SBOX_USER)
 		drop_privs(1);
 	else if (filtermask & SBOX_ROOT) {
+		// https://seclists.org/oss-sec/2021/q4/43
+		struct rlimit tozero = { .rlim_cur = 0, .rlim_max = 0 };
+		if (setrlimit(RLIMIT_CORE, &tozero))
+			errExit("setrlimit");
+
 		// elevate privileges in order to get grsecurity working
 		if (setreuid(0, 0))
 			errExit("setreuid");
@@ -235,6 +260,7 @@ static int __attribute__((noreturn)) sbox_do_exec_v(unsigned filtermask, char * 
 			fprintf(stderr, "Error: %s is world writable, refusing to execute\n", arg[0]);
 			exit(1);
 		}
+		__gcov_dump();
 		fexecve(fd, arg, new_environment);
 	} else {
 		assert(0);
@@ -265,7 +291,6 @@ int sbox_run(unsigned filtermask, int num, ...) {
 }
 
 int sbox_run_v(unsigned filtermask, char * const arg[]) {
-	EUID_ROOT();
 	assert(arg);
 
 	if (arg_debug) {
@@ -285,6 +310,7 @@ int sbox_run_v(unsigned filtermask, char * const arg[]) {
 	if (child < 0)
 		errExit("fork");
 	if (child == 0) {
+		EUID_ROOT();
 		sbox_do_exec_v(filtermask, arg);
 	}
 
@@ -292,8 +318,9 @@ int sbox_run_v(unsigned filtermask, char * const arg[]) {
 	if (waitpid(child, &status, 0) == -1 ) {
 		errExit("waitpid");
 	}
-	if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-		fprintf(stderr, "Error: failed to run %s\n", arg[0]);
+	if (WIFSIGNALED(status) ||
+	   (WIFEXITED(status) && WEXITSTATUS(status) != 0)) {
+		fprintf(stderr, "Error: failed to run %s, exiting...\n", arg[0]);
 		exit(1);
 	}
 

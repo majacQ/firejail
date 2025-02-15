@@ -18,13 +18,12 @@ include allow-common-devel.inc
 # Allow ssh (blacklisted by disable-common.inc)
 include allow-ssh.inc
 
-noblacklist ${PATH}/node
 noblacklist ${HOME}/.nvm
+noblacklist ${PATH}/node
 
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -39,8 +38,9 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-cache
 private-dev
 private-tmp
+
+restrict-namespaces

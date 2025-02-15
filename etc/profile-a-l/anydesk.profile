@@ -10,7 +10,6 @@ noblacklist ${HOME}/.anydesk
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -29,9 +28,10 @@ notv
 nou2f
 protocol unix,inet,inet6
 seccomp
-shell none
 
 disable-mnt
 private-bin anydesk
 private-dev
 private-tmp
+
+restrict-namespaces

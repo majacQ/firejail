@@ -14,11 +14,12 @@ include allow-bin-sh.inc
 # Allow lua (blacklisted by disable-interpreters.inc)
 include allow-lua.inc
 
+blacklist /usr/libexec
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -36,7 +37,6 @@ caps.drop all
 net none
 nodvd
 nogroups
-noinput
 nonewprivs
 noroot
 notv
@@ -45,15 +45,16 @@ novideo
 protocol unix,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin love,mrrescue,sh
 private-cache
 private-dev
-private-etc machine-id
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

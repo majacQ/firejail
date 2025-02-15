@@ -10,13 +10,12 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
 whitelist /usr/share/libgweather
-include whitelist-common.inc
+#include whitelist-common.inc # see #903
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
@@ -38,7 +37,6 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
@@ -46,7 +44,7 @@ private
 private-bin gnome-calendar
 private-cache
 private-dev
-private-etc ca-certificates,crypto-policies,dconf,fonts,gtk-3.0,nsswitch.conf,pki,resolv.conf,ssl
+private-etc @tls-ca,@x11
 private-tmp
 
 dbus-user filter
@@ -55,10 +53,11 @@ dbus-user.talk ca.desrt.dconf
 dbus-user.talk org.gnome.evolution.dataserver.*
 #dbus-user.talk org.gnome.OnlineAccounts
 #dbus-user.talk org.gnome.ControlCenter
-# NOTE: dbus-system none fails, filter without rules works.
+# Note: dbus-system none fails, filter without rules works.
 dbus-system filter
 #dbus-system.talk org.freedesktop.timedate1
 #dbus-system.talk org.freedesktop.login1
 #dbus-system.talk org.freedesktop.GeoClue2
 
 read-only ${HOME}
+restrict-namespaces

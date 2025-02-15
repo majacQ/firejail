@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -22,7 +22,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <fcntl.h>
 #include <sys/syscall.h>
 #include <errno.h>
 #include <unistd.h>
@@ -31,32 +30,96 @@
 #include <dirent.h>
 #include <string.h>
 #include <time.h>
+#include <limits.h>
+#include <sched.h>
 #include "../include/common.h"
+#include "../include/rundefs.h"
+
+#include <fcntl.h>
+#ifndef O_PATH
+#define O_PATH 010000000
+#endif
+
+#include <sys/ioctl.h>
+#ifndef NSIO
+#define NSIO 0xb7
+#endif
+#ifndef NS_GET_USERNS
+#define NS_GET_USERNS _IO(NSIO, 0x1)
+#endif
+
 #define BUFLEN 4096
 
-int join_namespace(pid_t pid, char *type) {
+
+int join_namespace_by_fd(int dirfd, char *typestr) {
+	int type;
+	if (strcmp(typestr, "net") == 0)
+		type = CLONE_NEWNET;
+	else if (strcmp(typestr, "mnt") == 0)
+		type = CLONE_NEWNS;
+	else if (strcmp(typestr, "ipc") == 0)
+		type = CLONE_NEWIPC;
+	else if (strcmp(typestr, "pid") == 0)
+		type = CLONE_NEWPID;
+	else if (strcmp(typestr, "uts") == 0)
+		type = CLONE_NEWUTS;
+	else if (strcmp(typestr, "user") == 0)
+		type = CLONE_NEWUSER;
+	else
+		assert(0);
+
 	char *path;
-	if (asprintf(&path, "/proc/%u/ns/%s", pid, type) == -1)
+	if (asprintf(&path, "ns/%s", typestr) == -1)
 		errExit("asprintf");
 
-	int fd = open(path, O_RDONLY);
+	int fd = openat(dirfd, path, O_RDONLY|O_CLOEXEC);
+	free(path);
 	if (fd < 0)
 		goto errout;
 
-	if (syscall(__NR_setns, fd, 0) < 0) {
+	// require that target namespace is owned by
+	// the current user namespace (Linux >= 4.9)
+	struct stat self_userns;
+	if (stat("/proc/self/ns/user", &self_userns) == 0) {
+		int usernsfd = ioctl(fd, NS_GET_USERNS);
+		if (usernsfd != -1) {
+			struct stat dest_userns;
+			if (fstat(usernsfd, &dest_userns) < 0)
+				errExit("fstat");
+			close(usernsfd);
+			if (dest_userns.st_ino != self_userns.st_ino ||
+			    dest_userns.st_dev != self_userns.st_dev) {
+				close(fd);
+				goto errout;
+			}
+		}
+	}
+
+	if (syscall(__NR_setns, fd, type) < 0) {
 		close(fd);
 		goto errout;
 	}
 
 	close(fd);
-	free(path);
 	return 0;
 
 errout:
-	free(path);
-	fprintf(stderr, "Error: cannot join namespace %s\n", type);
+	fprintf(stderr, "Error: cannot join namespace %s\n", typestr);
 	return -1;
+}
 
+int join_namespace(pid_t pid, char *typestr) {
+	char path[64];
+	snprintf(path, sizeof(path), "/proc/%d", pid);
+	int fd = open(path, O_PATH|O_CLOEXEC);
+	if (fd < 0) {
+		fprintf(stderr, "Error: cannot open %s: %s\n", path, strerror(errno));
+		exit(1);
+	}
+
+	int rv = join_namespace_by_fd(fd, typestr);
+	close(fd);
+	return rv;
 }
 
 // return 1 if error
@@ -93,10 +156,9 @@ int name2pid(const char *name, pid_t *pid) {
 			free(comm);
 		}
 
-		// look for the sandbox name in /run/firejail/name/<PID>
-		// todo: use RUN_FIREJAIL_NAME_DIR define from src/firejail/firejail.h
+		// look for the sandbox name
 		char *fname;
-		if (asprintf(&fname, "/run/firejail/name/%d", newpid) == -1)
+		if (asprintf(&fname, "%s/%d", RUN_FIREJAIL_NAME_DIR, newpid) == -1)
 			errExit("asprintf");
 		FILE *fp = fopen(fname, "r");
 		if (fp) {
@@ -318,6 +380,173 @@ const char *gnu_basename(const char *path) {
 	if (!last_slash)
 		return path;
 	return last_slash+1;
+}
+
+char *do_replace_cntrl_chars(char *str, char c) {
+	if (str) {
+		size_t i;
+		for (i = 0; str[i]; i++) {
+			if (iscntrl((unsigned char) str[i]))
+				str[i] = c;
+		}
+	}
+	return str;
+}
+
+char *replace_cntrl_chars(const char *str, char c) {
+	assert(str);
+
+	char *rv = strdup(str);
+	if (!rv)
+		errExit("strdup");
+
+	do_replace_cntrl_chars(rv, c);
+	return rv;
+}
+
+// Replaces each control character in str with an escape sequence, such as by
+// replacing '\n' (0x0a) with "\\n" (0x5c6e).
+char *escape_cntrl_chars(const char *str) {
+	if (str == NULL)
+		return NULL;
+
+	unsigned int cntrl_chars = 0;
+	const char *c = str;
+	while (*c) {
+		switch (*c++) {
+		case '\b':
+		case '\a':
+		case '\e':
+		case '\f':
+		case '\n':
+		case '\r':
+		case '\t':
+		case '\v':
+		case '\"':
+		case '\'':
+		case '\?':
+		case '\\':
+			++cntrl_chars;
+		default:
+			break;
+		}
+	}
+	char *ptr, *rv = malloc(strlen(str) + cntrl_chars + 1);
+	if (!rv)
+		errExit("malloc");
+	ptr = rv;
+	c = str;
+	while (*c) {
+		if (iscntrl(*c)) {
+			*ptr++ = '\\';
+			switch (*c) {
+			case '\b': *ptr++ = 'b'; break;
+			case '\a': *ptr++ = 'a'; break;
+			case '\e': *ptr++ = 'e'; break;
+			case '\f': *ptr++ = 'f'; break;
+			case '\n': *ptr++ = 'n'; break;
+			case '\r': *ptr++ = 'r'; break;
+			case '\t': *ptr++ = 't'; break;
+			case '\v': *ptr++ = 'v'; break;
+			case '\"': *ptr++ = '\"'; break;
+			case '\'': *ptr++ = '\''; break;
+			case '\?': *ptr++ = '?'; break;
+			case '\\': *ptr++ = '\\'; break;
+			}
+		} else {
+			*ptr++ = *c;
+		}
+		c++;
+	}
+	*ptr = '\0';
+	return rv;
+}
+
+int has_cntrl_chars(const char *str) {
+	assert(str);
+
+	size_t i;
+	for (i = 0; str[i]; i++) {
+		if (iscntrl((unsigned char) str[i]))
+			return 1;
+	}
+	return 0;
+}
+
+void reject_cntrl_chars(const char *fname) {
+	assert(fname);
+
+	if (has_cntrl_chars(fname)) {
+		char *fname_print = replace_cntrl_chars(fname, '?');
+
+		fprintf(stderr, "Error: \"%s\" is an invalid filename: no control characters are allowed\n", fname_print);
+		exit(1);
+	}
+}
+
+void reject_meta_chars(const char *fname, int globbing) {
+	assert(fname);
+
+	reject_cntrl_chars(fname);
+
+	const char *reject = "\\&!?\"<>%^{};,*[]";
+	if (globbing)
+		reject = "\\&!\"<>%^{};,"; // file globbing ('*?[]') is allowed
+
+	const char *c = strpbrk(fname, reject);
+	if (c) {
+		fprintf(stderr, "Error: \"%s\" is an invalid filename: rejected character: \"%c\"\n", fname, *c);
+		exit(1);
+	}
+}
+
+// takes string with comma separated int values, returns int array
+int *str_to_int_array(const char *str, size_t *sz) {
+	assert(str && sz);
+
+	size_t curr_sz = 0;
+	size_t arr_sz = 16;
+	int *rv = malloc(arr_sz * sizeof(int));
+	if (!rv)
+		errExit("malloc");
+
+	char *dup = strdup(str);
+	if (!dup)
+		errExit("strdup");
+	char *tok = strtok(dup, ",");
+	if (!tok) {
+		free(dup);
+		free(rv);
+		goto errout;
+	}
+
+	while (tok) {
+		char *end;
+		long val = strtol(tok, &end, 10);
+		if (end == tok || *end != '\0' || val < INT_MIN || val > INT_MAX) {
+			free(dup);
+			free(rv);
+			goto errout;
+		}
+
+		if (curr_sz == arr_sz) {
+			arr_sz *= 2;
+			rv = realloc(rv, arr_sz * sizeof(int));
+			if (!rv)
+				errExit("realloc");
+		}
+		rv[curr_sz++] = val;
+
+		tok = strtok(NULL, ",");
+	}
+	free(dup);
+
+	*sz = curr_sz;
+	return rv;
+
+errout:
+	*sz = 0;
+	return NULL;
 }
 
 //**************************

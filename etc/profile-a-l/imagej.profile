@@ -15,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -32,7 +31,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 
 private-bin awk,basename,bash,cut,free,grep,hostname,imagej,ln,ls,mkdir,rm,sort,tail,touch,tr,uname,update-java-alternatives,whoami,xprop
 private-dev
@@ -40,3 +38,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

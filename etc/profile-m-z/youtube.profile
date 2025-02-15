@@ -1,5 +1,5 @@
 # Firejail profile for youtube
-# Description: Unofficial electron based desktop warpper for YouTube
+# Description: Unofficial electron based desktop wrapper for YouTube
 # This file is overwritten after every install/update
 # Persistent local customizations
 include youtube.local
@@ -15,10 +15,10 @@ include disable-shell.inc
 
 mkdir ${HOME}/.config/Youtube
 whitelist ${HOME}/.config/Youtube
+whitelist /opt/Youtube
 
-private-bin youtube
-private-etc alsa,alternatives,asound.conf,ati,bumblebee,ca-certificates,crypto-policies,drirc,fonts,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,mime.types,nsswitch.conf,nvidia,pki,pulse,resolv.conf,selinux,ssl,X11,xdg
-private-opt Youtube
+private-bin electron,electron[0-9],electron[0-9][0-9],youtube
+private-etc @tls-ca,@x11,bumblebee,host.conf,mime.types
 
 # Redirect
-include electron.profile
+include electron-common.profile

@@ -14,7 +14,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -44,13 +43,12 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 private-bin shotwell
 private-cache
 private-dev
-private-etc alternatives,fonts,machine-id
+private-etc
 private-opt none
 private-tmp
 
@@ -59,3 +57,5 @@ dbus-user.own org.gnome.Shotwell
 dbus-user.talk ca.desrt.dconf
 dbus-user.talk org.gtk.vfs.UDisks2VolumeMonitor
 dbus-system none
+
+restrict-namespaces

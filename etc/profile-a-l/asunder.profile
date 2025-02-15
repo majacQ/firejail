@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -27,7 +26,7 @@ apparmor
 caps.drop all
 netfilter
 no3d
-# nogroups
+#nogroups
 noinput
 nonewprivs
 noroot
@@ -36,7 +35,6 @@ notv
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-cache
 private-dev
@@ -46,4 +44,5 @@ dbus-user none
 dbus-system none
 
 # mdwe is disabled due to breaking hardware accelerated decoding
-# memory-deny-write-execute
+#memory-deny-write-execute
+restrict-namespaces

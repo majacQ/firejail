@@ -11,7 +11,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 include whitelist-var-common.inc
@@ -26,9 +25,9 @@ noroot
 notv
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
 disable-mnt
-# private-dev
+#private-dev
 private-tmp
 
+restrict-namespaces

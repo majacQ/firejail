@@ -7,7 +7,6 @@ include nslookup.local
 # Persistent global definitions
 include globals.local
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}
 
 noblacklist ${PATH}/nslookup
@@ -16,8 +15,8 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
+include disable-x11.inc
 include disable-xdg.inc
 
 whitelist ${HOME}/.nslookuprc
@@ -42,11 +41,11 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin bash,nslookup,sh
+private-etc
 private-dev
 private-tmp
 
@@ -54,3 +53,4 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

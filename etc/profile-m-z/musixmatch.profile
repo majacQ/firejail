@@ -10,7 +10,6 @@ noblacklist ${MUSIC}
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -30,9 +29,10 @@ notv
 nou2f
 novideo
 protocol unix,inet,inet6,netlink
-seccomp
+seccomp !chroot
 
 disable-mnt
 private-dev
-private-etc alternatives,asound.conf,ca-certificates,crypto-policies,machine-id,pki,pulse,ssl
+private-etc @tls-ca
 
+#restrict-namespaces

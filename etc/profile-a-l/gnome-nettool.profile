@@ -10,12 +10,11 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
 whitelist /usr/share/gnome-nettool
-#include whitelist-common.inc -- see #903
+#include whitelist-common.inc # see #903
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
@@ -36,7 +35,6 @@ notv
 nou2f
 novideo
 #seccomp
-#shell none
 
 disable-mnt
 private
@@ -47,3 +45,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+#restrict-namespaces

@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -37,15 +36,16 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin photoflare
 private-cache
 private-dev
-private-etc alternatives,fonts,locale,locale.alias,locale.conf,mime.types,X11
+private-etc @x11,mime.types
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

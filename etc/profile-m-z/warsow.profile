@@ -11,11 +11,13 @@ ignore noexec ${HOME}
 noblacklist ${HOME}/.cache/warsow-2.1
 noblacklist ${HOME}/.local/share/warsow-2.1
 
+# Allow /bin/sh (blacklisted by disable-shell.inc)
+include allow-bin-sh.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -35,22 +37,22 @@ ipc-namespace
 netfilter
 nodvd
 nogroups
-noinput
 nonewprivs
 noroot
 notv
 nou2f
 novideo
-protocol unix,inet,inet6
+protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
-private-bin warsow
+private-bin basename,bash,dirname,sed,sh,uname,warsow
 private-cache
 private-dev
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

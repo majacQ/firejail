@@ -11,7 +11,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -28,7 +27,6 @@ protocol unix
 
 # If a 1-1.2% gap per thread hurts you, add 'ignore seccomp' to your cin.local.
 seccomp
-shell none
 
 #private-bin cin,ffmpeg
 private-cache
@@ -36,3 +34,5 @@ private-dev
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

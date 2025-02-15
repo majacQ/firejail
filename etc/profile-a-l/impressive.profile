@@ -18,13 +18,11 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.cache/mesa_shader_cache
 whitelist /usr/share/opengl-games-utils
-whitelist /usr/share/zenity
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
 
@@ -44,7 +42,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 private-cache
@@ -56,3 +53,4 @@ dbus-system none
 
 read-only ${HOME}
 read-write ${HOME}/.cache/mesa_shader_cache
+restrict-namespaces

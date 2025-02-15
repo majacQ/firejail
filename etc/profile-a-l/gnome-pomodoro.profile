@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -38,14 +37,13 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin gnome-pomodoro
 private-cache
 private-dev
-private-etc dconf,fonts,gtk-3.0,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,localtime,machine-id
+private-etc @x11
 private-tmp
 
 dbus-user filter
@@ -58,3 +56,4 @@ dbus-system none
 
 read-only ${HOME}
 read-write ${HOME}/.local/share/gnome-pomodoro
+restrict-namespaces

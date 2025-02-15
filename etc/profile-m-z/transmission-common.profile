@@ -14,7 +14,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.cache/transmission
@@ -41,15 +40,15 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 private-cache
 private-dev
-private-lib
+private-etc @tls-ca,@x11
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

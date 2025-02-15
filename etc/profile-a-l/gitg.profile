@@ -18,7 +18,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 #whitelist ${HOME}/YOUR_GIT_PROJECTS_DIRECTORY
@@ -49,7 +48,6 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 private-bin git,gitg,ssh
@@ -63,3 +61,5 @@ dbus-user.talk ca.desrt.dconf
 # Add the next line to your gitg.local if you need keyring access.
 #dbus-user.talk org.freedesktop.secrets
 dbus-system none
+
+restrict-namespaces

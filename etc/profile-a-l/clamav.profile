@@ -7,6 +7,8 @@ include clamav.local
 # Persistent global definitions
 include globals.local
 
+noblacklist /etc/clamav
+
 blacklist ${RUNUSER}/wayland-*
 
 include disable-exec.inc
@@ -26,7 +28,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
@@ -38,3 +39,4 @@ dbus-system none
 read-only ${HOME}
 
 memory-deny-write-execute
+restrict-namespaces

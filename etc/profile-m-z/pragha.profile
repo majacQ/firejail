@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -31,9 +30,9 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-dev
-private-etc alternatives,asound.conf,ca-certificates,crypto-policies,fonts,gtk-3.0,host.conf,hostname,hosts,machine-id,pki,pulse,resolv.conf,ssl,xdg
+private-etc @tls-ca,@x11,host.conf
 private-tmp
 
+restrict-namespaces

@@ -11,11 +11,12 @@ noblacklist ${HOME}/.local/share/Trash
 noblacklist ${HOME}/.Steam
 noblacklist ${HOME}/.steam
 
+blacklist /usr/libexec
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-write-mnt.inc
 
@@ -41,11 +42,12 @@ novideo
 protocol unix,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 private-cache
 private-dev
-private-etc alternatives,dconf,fonts,gtk-3.0
+private-etc @x11
 private-lib eog,eom,gdk-pixbuf-2.*,gio,girepository-1.*,gvfs,libgconf-2.so.*
 private-tmp
+
+restrict-namespaces

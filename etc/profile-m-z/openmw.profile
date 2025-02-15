@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-write-mnt.inc
@@ -48,15 +47,16 @@ novideo
 protocol unix,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 private-bin bsatool,esmtool,niftest,openmw,openmw-cs,openmw-essimporter,openmw-iniimporter,openmw-launcher,openmw-wizard
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,bumblebee,drirc,fonts,glvnd,group,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,machine-id,mime.types,nvidia,openmw,pango,passwd,pulse,Trolltech.conf,X11,xdg
+private-etc @x11,bumblebee,glvnd,mime.types,openmw
 private-opt none
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

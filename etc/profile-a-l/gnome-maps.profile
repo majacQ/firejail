@@ -18,11 +18,12 @@ noblacklist ${HOME}/.local/share/maps-places.json
 # Allow gjs (blacklisted by disable-interpreters.inc)
 include allow-gjs.inc
 
+blacklist /usr/libexec
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -56,14 +57,13 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin gjs,gnome-maps
-# private-cache -- gnome-maps cache all maps/satelite-images
+#private-cache # gnome-maps cache all maps/satelite-images
 private-dev
-private-etc alternatives,ca-certificates,clutter-1.0,crypto-policies,dconf,drirc,fonts,gconf,gcrypt,gtk-3.0,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,mime.types,nsswitch.conf,pango,pkcs11,pki,protocols,resolv.conf,rpc,services,ssl,X11,xdg
+private-etc @tls-ca,@x11,clutter-1.0,gconf,host.conf,mime.types,pkcs11,rpc,services
 private-tmp
 
 dbus-user filter
@@ -73,3 +73,5 @@ dbus-user.own org.gnome.Maps
 dbus-system filter
 #dbus-system.talk org.freedesktop.NetworkManager
 dbus-system.talk org.freedesktop.GeoClue2
+
+restrict-namespaces

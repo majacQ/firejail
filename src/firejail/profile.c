@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -18,13 +18,16 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 #include "firejail.h"
+#include "../include/gcov_wrapper.h"
 #include "../include/seccomp.h"
 #include "../include/syscall.h"
 #include <dirent.h>
 #include <sys/stat.h>
+
 extern char *xephyr_screen;
 
-#define MAX_READ 8192				  // line buffer for profile files
+#define MAX_READ 8192		// line buffer for profile files
+#define MAX_LIST 16384		// size limit for argument lists
 
 // find and read the profile specified by name from dir directory
 // return  1 if a profile was found
@@ -70,6 +73,7 @@ static int profile_find(const char *name, const char *dir, int add_ext) {
 // search and read the profile specified by name from firejail directories
 // return  1 if a profile was found
 int profile_find_firejail(const char *name, int add_ext) {
+#ifndef HAVE_ONLY_SYSCFG_PROFILES
 	// look for a profile in ~/.config/firejail directory
 	char *usercfgdir;
 	if (asprintf(&usercfgdir, "%s/.config/firejail", cfg.homedir) == -1)
@@ -82,6 +86,9 @@ int profile_find_firejail(const char *name, int add_ext) {
 		rv = profile_find(name, SYSCONFDIR, add_ext);
 
 	return rv;
+#else
+	return profile_find(name, SYSCONFDIR, add_ext);
+#endif
 }
 
 //***************************************************
@@ -173,6 +180,10 @@ static int check_allow_drm(void) {
 	return checkcfg(CFG_BROWSER_ALLOW_DRM) != 0;
 }
 
+static int check_allow_tray(void) {
+	return checkcfg(CFG_ALLOW_TRAY) != 0;
+}
+
 Cond conditionals[] = {
 	{"HAS_APPIMAGE", check_appimage},
 	{"HAS_NET", check_netoptions},
@@ -182,6 +193,7 @@ Cond conditionals[] = {
 	{"HAS_X11", check_x11},
 	{"BROWSER_DISABLE_U2F", check_disable_u2f},
 	{"BROWSER_ALLOW_DRM", check_allow_drm},
+	{"ALLOW_TRAY", check_allow_tray},
 	{ NULL, NULL }
 };
 
@@ -283,6 +295,15 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		return 0;
 	}
 
+	if (strncmp(ptr, "keep-fd ", 8) == 0) {
+		if (strcmp(ptr + 8, "all") == 0)
+			arg_keep_fd_all = 1;
+		else {
+			const char *add = ptr + 8;
+			profile_list_augment(&cfg.keep_fd, add);
+		}
+		return 0;
+	}
 	if (strncmp(ptr, "xephyr-screen ", 14) == 0) {
 #ifdef HAVE_X11
 		if (checkcfg(CFG_X11)) {
@@ -307,6 +328,10 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 	else if (strncmp(ptr, "name ", 5) == 0) {
 		cfg.name = ptr + 5;
 		if (strlen(cfg.name) == 0) {
+			fprintf(stderr, "Error: invalid sandbox name: cannot be empty\n");
+			exit(1);
+		}
+		if (invalid_name(cfg.name)) {
 			fprintf(stderr, "Error: invalid sandbox name\n");
 			exit(1);
 		}
@@ -346,12 +371,14 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		arg_caps_drop_all = 1;
 		return 0;
 	}
-	else if (strcmp(ptr, "shell none") == 0) {
-		arg_shell_none = 1;
+	else if (strcmp(ptr, "shell ") == 0) {
+		fprintf(stderr, "Warning: \"shell none\" is done by default now; the \"shell\" command has been removed\n");
 		return 0;
 	}
 	else if (strcmp(ptr, "tracelog") == 0) {
-		arg_tracelog = 1;
+		if (checkcfg(CFG_TRACELOG))
+			arg_tracelog = 1;
+		// no warning, we have tracelog in over 400 profiles
 		return 0;
 	}
 	else if (strcmp(ptr, "private") == 0) {
@@ -371,6 +398,10 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		else
 			warning_feature_disabled("private-home");
 #endif
+		return 0;
+	}
+	else if (strcmp(ptr, "tab") == 0) {
+		arg_tab = 1;
 		return 0;
 	}
 	else if (strcmp(ptr, "private-cwd") == 0) {
@@ -409,13 +440,7 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		return 0;
 	}
 	else if (strcmp(ptr, "nogroups") == 0) {
-		// nvidia cards require video group; disable nogroups
-		if (access("/dev/nvidiactl", R_OK) == 0 && arg_no3d == 0) {
-			fwarning("Warning: NVIDIA card detected, nogroups command disabled\n");
-			arg_nogroups = 0;
-		}
-		else
-			arg_nogroups = 1;
+		arg_nogroups = 1;
 		return 0;
 	}
 	else if (strcmp(ptr, "nosound") == 0) {
@@ -442,6 +467,12 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		arg_no3d = 1;
 		return 0;
 	}
+	else if (strcmp(ptr, "noprinters") == 0) {
+		arg_noprinters = 1;
+		profile_add("blacklist /dev/lp*");
+		profile_add("blacklist /run/cups/cups.sock");
+		return 0;
+	}
 	else if (strcmp(ptr, "noinput") == 0) {
 		arg_noinput = 1;
 		return 0;
@@ -453,7 +484,7 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 #endif
 		return 0;
 	}
-	else if (strncmp("dbus-user ", ptr, 10) == 0) {
+	else if (strncmp(ptr, "dbus-user ", 10) == 0) {
 #ifdef HAVE_DBUSPROXY
 		ptr += 10;
 		if (strcmp("filter", ptr) == 0) {
@@ -520,7 +551,7 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 #endif
 		return 1;
 	}
-	else if (strncmp("dbus-system ", ptr, 12) == 0) {
+	else if (strncmp(ptr, "dbus-system ", 12) == 0) {
 #ifdef HAVE_DBUSPROXY
 		ptr += 12;
 		if (strcmp("filter", ptr) == 0) {
@@ -587,6 +618,10 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 #endif
 		return 1;
 	}
+	else if (strcmp(ptr, "notpm") == 0) {
+		arg_notpm = 1;
+		return 0;
+	}
 	else if (strcmp(ptr, "nou2f") == 0) {
 		arg_nou2f = 1;
 		return 0;
@@ -604,9 +639,7 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 #ifdef HAVE_NETWORK
 		if (checkcfg(CFG_NETWORK)) {
 			arg_netfilter = 1;
-			arg_netfilter_file = strdup(ptr + 10);
-			if (!arg_netfilter_file)
-				errExit("strdup");
+			arg_netfilter_file = expand_macros(ptr + 10);
 			check_netfilter_file(arg_netfilter_file);
 		}
 		else
@@ -618,9 +651,7 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 #ifdef HAVE_NETWORK
 		if (checkcfg(CFG_NETWORK)) {
 			arg_netfilter6 = 1;
-			arg_netfilter6_file = strdup(ptr + 11);
-			if (!arg_netfilter6_file)
-				errExit("strdup");
+			arg_netfilter6_file = expand_macros(ptr + 11);
 			check_netfilter_file(arg_netfilter6_file);
 		}
 		else
@@ -628,7 +659,17 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 #endif
 		return 0;
 	}
-	else if (strncmp(ptr, "netns  ", 6) == 0) {
+	else if (strcmp(ptr, "netlock") == 0) {
+#ifdef HAVE_NETWORK
+		if (checkcfg(CFG_NETWORK)) {
+			arg_netlock = 1;
+		}
+		else
+			warning_feature_disabled("networking");
+#endif
+		return 0;
+	}
+	else if (strncmp(ptr, "netns ", 6) == 0) {
 #ifdef HAVE_NETWORK
 		if (checkcfg(CFG_NETWORK)) {
 			arg_netns = ptr + 6;
@@ -914,6 +955,33 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 	if (strcmp(ptr, "apparmor") == 0) {
 #ifdef HAVE_APPARMOR
 		arg_apparmor = 1;
+		apparmor_profile = "firejail-default";
+#endif
+		return 0;
+	}
+
+	if (strncmp(ptr, "apparmor ", 9) == 0) {
+#ifdef HAVE_APPARMOR
+		arg_apparmor = 1;
+		apparmor_profile = strdup(ptr + 9);
+		if (!apparmor_profile)
+			errExit("strdup");
+#endif
+		return 0;
+	}
+
+	if (strcmp(ptr, "apparmor-replace") == 0) {
+#ifdef HAVE_APPARMOR
+		arg_apparmor = 1;
+		apparmor_replace = true;
+#endif
+		return 0;
+	}
+
+	if (strcmp(ptr, "apparmor-stack") == 0) {
+#ifdef HAVE_APPARMOR
+		arg_apparmor = 1;
+		apparmor_replace = false;
 #endif
 		return 0;
 	}
@@ -979,10 +1047,10 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 			warning_feature_disabled("seccomp");
 		return 0;
 	}
-	if (strncmp(ptr, "seccomp.32.drop ", 13) == 0) {
+	if (strncmp(ptr, "seccomp.32.drop ", 16) == 0) {
 		if (checkcfg(CFG_SECCOMP)) {
 			arg_seccomp32 = 1;
-			cfg.seccomp_list_drop32 = seccomp_check_list(ptr + 13);
+			cfg.seccomp_list_drop32 = seccomp_check_list(ptr + 16);
 		}
 		else
 			warning_feature_disabled("seccomp");
@@ -999,20 +1067,71 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 			warning_feature_disabled("seccomp");
 		return 0;
 	}
-	if (strncmp(ptr, "seccomp.32.keep ", 13) == 0) {
+	if (strncmp(ptr, "seccomp.32.keep ", 16) == 0) {
 		if (checkcfg(CFG_SECCOMP)) {
 			arg_seccomp32 = 1;
-			cfg.seccomp_list_keep32 = seccomp_check_list(ptr + 13);
+			cfg.seccomp_list_keep32 = seccomp_check_list(ptr + 16);
 		}
 		else
 			warning_feature_disabled("seccomp");
 		return 0;
 	}
 
+//#ifdef HAVE_LANDLOCK
+// landlock-common.inc is included by default.profile, so the entries of the
+// former should be processed or ignored instead of aborting.
+// Note that all landlock functions are empty when building without landlock
+// support.
+	if (strncmp(ptr, "landlock.enforce", 16) == 0) {
+		arg_landlock_enforce = 1;
+		return 0;
+	}
+	if (strncmp(ptr, "landlock.fs.read ", 17) == 0) {
+		ll_add_profile(LL_FS_READ, ptr + 17);
+		return 0;
+	}
+	if (strncmp(ptr, "landlock.fs.write ", 18) == 0) {
+		ll_add_profile(LL_FS_WRITE, ptr + 18);
+		return 0;
+	}
+	if (strncmp(ptr, "landlock.fs.makeipc ", 20) == 0) {
+		ll_add_profile(LL_FS_MAKEIPC, ptr + 20);
+		return 0;
+	}
+	if (strncmp(ptr, "landlock.fs.makedev ", 20) == 0) {
+		ll_add_profile(LL_FS_MAKEDEV, ptr + 20);
+		return 0;
+	}
+	if (strncmp(ptr, "landlock.fs.execute ", 20) == 0) {
+		ll_add_profile(LL_FS_EXEC, ptr + 20);
+		return 0;
+	}
+//#endif
+
 	// memory deny write&execute
 	if (strcmp(ptr, "memory-deny-write-execute") == 0) {
 		if (checkcfg(CFG_SECCOMP))
 			arg_memory_deny_write_execute = 1;
+		else
+			warning_feature_disabled("seccomp");
+		return 0;
+	}
+
+	// restrict-namespaces
+	if (strcmp(ptr, "restrict-namespaces") == 0) {
+		if (checkcfg(CFG_SECCOMP)) {
+			arg_restrict_namespaces = 1;
+			profile_list_augment(&cfg.restrict_namespaces, "cgroup,ipc,net,mnt,pid,time,user,uts");
+		}
+		else
+			warning_feature_disabled("seccomp");
+		return 0;
+	}
+	if (strncmp(ptr, "restrict-namespaces ", 20) == 0) {
+		if (checkcfg(CFG_SECCOMP)) {
+			const char *add = ptr + 20;
+			profile_list_augment(&cfg.restrict_namespaces, add);
+		}
 		else
 			warning_feature_disabled("seccomp");
 		return 0;
@@ -1070,6 +1189,14 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 	// hostname
 	if (strncmp(ptr, "hostname ", 9) == 0) {
 		cfg.hostname = ptr + 9;
+		if (strlen(cfg.hostname) == 0) {
+			fprintf(stderr, "Error: invalid hostname: cannot be empty\n");
+			exit(1);
+		}
+		if (invalid_name(cfg.hostname)) {
+			fprintf(stderr, "Error: invalid hostname\n");
+			exit(1);
+		}
 		return 0;
 	}
 
@@ -1099,7 +1226,7 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		else if (cfg.dns4 == NULL)
 			cfg.dns4 = dns;
 		else {
-			fwarning("Warning: up to 4 DNS servers can be specified, %s ignored\n", dns);
+			fwarning("up to 4 DNS servers can be specified, %s ignored\n", dns);
 			free(dns);
 		}
 		return 0;
@@ -1120,15 +1247,6 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		return 0;
 	}
 
-	// cgroup
-	if (strncmp(ptr, "cgroup ", 7) == 0) {
-		if (checkcfg(CFG_CGROUP))
-			set_cgroup(ptr + 7);
-		else
-			warning_feature_disabled("cgroup");
-		return 0;
-	}
-
 	// writable-etc
 	if (strcmp(ptr, "writable-etc") == 0) {
 		if (cfg.etc_private_keep) {
@@ -1146,6 +1264,11 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 
 	if (strcmp(ptr, "keep-config-pulse") == 0) {
 		arg_keep_config_pulse = 1;
+		return 0;
+	}
+
+	if (strcmp(ptr, "keep-shell-rc") == 0) {
+		arg_keep_shell_rc = 1;
 		return 0;
 	}
 
@@ -1275,56 +1398,83 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 
 	// private /etc list of files and directories
 	if (strncmp(ptr, "private-etc ", 12) == 0) {
-		if (arg_writable_etc) {
-			fprintf(stderr, "Error: --private-etc and --writable-etc are mutually exclusive\n");
-			exit(1);
+		if (checkcfg(CFG_PRIVATE_ETC)) {
+			if (arg_writable_etc) {
+				fprintf(stderr, "Error: --private-etc and --writable-etc are mutually exclusive\n");
+				exit(1);
+			}
+			if (cfg.etc_private_keep) {
+				if ( asprintf(&cfg.etc_private_keep, "%s,%s", cfg.etc_private_keep, ptr + 12) < 0 )
+					errExit("asprintf");
+			} else {
+				cfg.etc_private_keep = ptr + 12;
+			}
+			arg_private_etc = 1;
 		}
-		if (cfg.etc_private_keep) {
-			if ( asprintf(&cfg.etc_private_keep, "%s,%s", cfg.etc_private_keep, ptr + 12) < 0 )
-				errExit("asprintf");
-		} else {
-			cfg.etc_private_keep = ptr + 12;
-		}
-		arg_private_etc = 1;
+		else
+			warning_feature_disabled("private-etc");
+		return 0;
+	}
 
+	// private /etc without a list of files and directories
+	if (strcmp(ptr, "private-etc") == 0) {
+		if (checkcfg(CFG_PRIVATE_ETC)) {
+			if (arg_writable_etc) {
+				fprintf(stderr, "Error: --private-etc and --writable-etc are mutually exclusive\n");
+				exit(1);
+			}
+			arg_private_etc = 1;
+		}
+		else
+			warning_feature_disabled("private-etc");
 		return 0;
 	}
 
 	// private /opt list of files and directories
 	if (strncmp(ptr, "private-opt ", 12) == 0) {
-		if (cfg.opt_private_keep) {
-			if ( asprintf(&cfg.opt_private_keep, "%s,%s", cfg.opt_private_keep, ptr + 12) < 0 )
-				errExit("asprintf");
-		} else {
-			cfg.opt_private_keep = ptr + 12;
+		if (checkcfg(CFG_PRIVATE_OPT)) {
+			if (cfg.opt_private_keep) {
+				if ( asprintf(&cfg.opt_private_keep, "%s,%s", cfg.opt_private_keep, ptr + 12) < 0 )
+					errExit("asprintf");
+			} else {
+				cfg.opt_private_keep = ptr + 12;
+			}
+			arg_private_opt = 1;
 		}
-		arg_private_opt = 1;
-
+		else
+			warning_feature_disabled("private-opt");
 		return 0;
 	}
 
 	// private /srv list of files and directories
 	if (strncmp(ptr, "private-srv ", 12) == 0) {
-		if (cfg.srv_private_keep) {
-			if ( asprintf(&cfg.srv_private_keep, "%s,%s", cfg.srv_private_keep, ptr + 12) < 0 )
-				errExit("asprintf");
-		} else {
-			cfg.srv_private_keep = ptr + 12;
+		if (checkcfg(CFG_PRIVATE_SRV)) {
+			if (cfg.srv_private_keep) {
+				if ( asprintf(&cfg.srv_private_keep, "%s,%s", cfg.srv_private_keep, ptr + 12) < 0 )
+					errExit("asprintf");
+			} else {
+				cfg.srv_private_keep = ptr + 12;
+			}
+			arg_private_srv = 1;
 		}
-		arg_private_srv = 1;
-
+		else
+			warning_feature_disabled("private-srv");
 		return 0;
 	}
 
 	// private /bin list of files
 	if (strncmp(ptr, "private-bin ", 12) == 0) {
-		if (cfg.bin_private_keep) {
-			if ( asprintf(&cfg.bin_private_keep, "%s,%s", cfg.bin_private_keep, ptr + 12) < 0 )
-				errExit("asprintf");
-		} else {
-			cfg.bin_private_keep = ptr + 12;
+		if (checkcfg(CFG_PRIVATE_BIN)) {
+			if (cfg.bin_private_keep) {
+				if ( asprintf(&cfg.bin_private_keep, "%s,%s", cfg.bin_private_keep, ptr + 12) < 0 )
+					errExit("asprintf");
+			} else {
+				cfg.bin_private_keep = ptr + 12;
+			}
+			arg_private_bin = 1;
 		}
-		arg_private_bin = 1;
+		else
+			warning_feature_disabled("private-bin");
 		return 0;
 	}
 
@@ -1356,11 +1506,6 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 			}
 			if (cfg.chrootdir) {
 				fprintf(stderr, "Error: --overlay and --chroot options are mutually exclusive\n");
-				exit(1);
-			}
-			struct stat s;
-			if (stat("/proc/sys/kernel/grsecurity", &s) == 0) {
-				fprintf(stderr, "Error: --overlay option is not available on Grsecurity systems\n");
 				exit(1);
 			}
 			arg_overlay = 1;
@@ -1395,11 +1540,6 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 				fprintf(stderr, "Error: --overlay and --chroot options are mutually exclusive\n");
 				exit(1);
 			}
-			struct stat s;
-			if (stat("/proc/sys/kernel/grsecurity", &s) == 0) {
-				fprintf(stderr, "Error: --overlay option is not available on Grsecurity systems\n");
-				exit(1);
-			}
 			arg_overlay = 1;
 		}
 		else
@@ -1414,11 +1554,6 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 			}
 			if (cfg.chrootdir) {
 				fprintf(stderr, "Error: --overlay and --chroot options are mutually exclusive\n");
-				exit(1);
-			}
-			struct stat s;
-			if (stat("/proc/sys/kernel/grsecurity", &s) == 0) {
-				fprintf(stderr, "Error: --overlay option is not available on Grsecurity systems\n");
 				exit(1);
 			}
 			arg_overlay = 1;
@@ -1482,28 +1617,34 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 			arg_rlimit_nofile = 1;
 		}
 		else if (strncmp(ptr, "rlimit-cpu ", 11) == 0) {
-			check_unsigned(ptr + 11, "Error: invalid rlimit in profile file: ");
+			check_unsigned(ptr + 11, "Error: invalid rlimit-cpu in profile file: ");
 			sscanf(ptr + 11, "%llu", &cfg.rlimit_cpu);
 			arg_rlimit_cpu = 1;
 		}
 		else if (strncmp(ptr, "rlimit-nproc ", 13) == 0) {
-			check_unsigned(ptr + 13, "Error: invalid rlimit in profile file: ");
+			check_unsigned(ptr + 13, "Error: invalid rlimit-nproc in profile file: ");
 			sscanf(ptr + 13, "%llu", &cfg.rlimit_nproc);
 			arg_rlimit_nproc = 1;
 		}
 		else if (strncmp(ptr, "rlimit-fsize ", 13) == 0) {
-			check_unsigned(ptr + 13, "Error: invalid rlimit in profile file: ");
-			sscanf(ptr + 13, "%llu", &cfg.rlimit_fsize);
+			cfg.rlimit_fsize = parse_arg_size(ptr + 13);
+			if (cfg.rlimit_fsize == 0) {
+				perror("Error: invalid rlimit-fsize in profile file. Only use positive numbers and k, m or g suffix.");
+				exit(1);
+			}
 			arg_rlimit_fsize = 1;
 		}
 		else if (strncmp(ptr, "rlimit-sigpending ", 18) == 0) {
-			check_unsigned(ptr + 18, "Error: invalid rlimit in profile file: ");
+			check_unsigned(ptr + 18, "Error: invalid rlimit-sigpending in profile file: ");
 			sscanf(ptr + 18, "%llu", &cfg.rlimit_sigpending);
 			arg_rlimit_sigpending = 1;
 		}
 		else if (strncmp(ptr, "rlimit-as ", 10) == 0) {
-			check_unsigned(ptr + 10, "Error: invalid rlimit in profile file: ");
-			sscanf(ptr + 10, "%llu", &cfg.rlimit_as);
+			cfg.rlimit_as = parse_arg_size(ptr + 10);
+			if (cfg.rlimit_as == 0) {
+				perror("Error: invalid rlimit-as in profile file. Only use positive numbers and k, m or g suffix.");
+				exit(1);
+			}
 			arg_rlimit_as = 1;
 		}
 		else {
@@ -1527,9 +1668,6 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 			int r = name2pid(ptr + 14, &pid);
 			EUID_USER();
 			if (!r) {
-				if (!cfg.shell && !arg_shell_none)
-					cfg.shell = guess_shell();
-
 				// find first non-option arg
 				int i;
 				for (i = 1; i < cfg.original_argc && strncmp(cfg.original_argv[i], "--", 2) != 0; i++);
@@ -1541,6 +1679,10 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 			// set sandbox name and start normally
 			cfg.name = ptr + 14;
 			if (strlen(cfg.name) == 0) {
+				fprintf(stderr, "Error: invalid sandbox name: cannot be empty\n");
+				exit(1);
+			}
+			if (invalid_name(cfg.name)) {
 				fprintf(stderr, "Error: invalid sandbox name\n");
 				exit(1);
 			}
@@ -1560,6 +1702,11 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 		return 0;
 	}
 
+	if (strcmp(ptr, "deterministic-shutdown") == 0) {
+		arg_deterministic_shutdown = 1;
+		return 0;
+	}
+
 	// rest of filesystem
 	if (strncmp(ptr, "blacklist ", 10) == 0)
 		ptr += 10;
@@ -1568,22 +1715,8 @@ int profile_check_line(char *ptr, int lineno, const char *fname) {
 	else if (strncmp(ptr, "noblacklist ", 12) == 0)
 		ptr += 12;
 	else if (strncmp(ptr, "whitelist ", 10) == 0) {
-#ifdef HAVE_WHITELIST
-		if (checkcfg(CFG_WHITELIST)) {
-			arg_whitelist = 1;
-			ptr += 10;
-		}
-		else {
-			static int whitelist_warning_printed = 0;
-			if (!whitelist_warning_printed) {
-				warning_feature_disabled("whitelist");
-				whitelist_warning_printed = 1;
-			}
-			return 0;
-		}
-#else
-		return 0;
-#endif
+		arg_whitelist = 1;
+		ptr += 10;
 	}
 	else if (strncmp(ptr, "nowhitelist ", 12) == 0)
 		ptr += 12;
@@ -1662,7 +1795,7 @@ void profile_read(const char *fname) {
 	// check file
 	invalid_filename(fname, 0); // no globbing
 	if (strlen(fname) == 0 || is_dir(fname)) {
-		fprintf(stderr, "Error: invalid profile file\n");
+		fprintf(stderr, "Error: invalid profile file '%s'\n", fname);
 		exit(1);
 	}
 	if (access(fname, R_OK)) {
@@ -1670,10 +1803,16 @@ void profile_read(const char *fname) {
 		// if the file ends in ".local", do not exit
 		const char *base = gnu_basename(fname);
 		char *ptr = strstr(base, ".local");
-		if (ptr && strlen(ptr) == 6 && errsv != EACCES)
+		if (ptr && strlen(ptr) == 6 && errsv != EACCES) {
+			if (arg_debug) {
+				printf("Cannot access .local file %s: %s, skipping...\n",
+				       fname, strerror(errsv));
+			}
 			return;
+		}
 
-		fprintf(stderr, "Error: cannot access profile file: %s\n", fname);
+		fprintf(stderr, "Error: cannot access profile file %s: %s\n",
+		        fname, strerror(errsv));
 		exit(1);
 	}
 
@@ -1699,7 +1838,8 @@ void profile_read(const char *fname) {
 	// open profile file:
 	FILE *fp = fopen(fname, "re");
 	if (fp == NULL) {
-		fprintf(stderr, "Error: cannot open profile file %s\n", fname);
+		fprintf(stderr, "Error: cannot open profile file %s: %s\n",
+		        fname, strerror(errno));
 		exit(1);
 	}
 
@@ -1729,12 +1869,24 @@ void profile_read(const char *fname) {
 			continue;
 		}
 
+		if (strncmp(ptr, "whitelist-ro ", 13) == 0) {
+			char *whitelist, *readonly;
+			if (asprintf(&whitelist, "whitelist %s", ptr + 13) == -1)
+				errExit("asprintf");
+			profile_add(whitelist);
+			if (asprintf(&readonly, "read-only %s", ptr + 13) == -1)
+				errExit("asprintf");
+			profile_add(readonly);
+			free(ptr);
+			continue;
+		}
+
 		// process quiet
 		// todo: a quiet in the profile file cannot be disabled by --ignore on command line
 		if (strcmp(ptr, "quiet") == 0) {
 			if (is_in_ignore_list(ptr))
 				arg_quiet = 0;
-			else
+			else if (!arg_debug)
 				arg_quiet = 1;
 			free(ptr);
 			continue;
@@ -1781,15 +1933,13 @@ void profile_read(const char *fname) {
 //		else {
 //			free(ptr);
 //		}
-#ifdef HAVE_GCOV
+
 		__gcov_flush();
-#endif
 	}
 	fclose(fp);
 }
 
-char *profile_list_normalize(char *list)
-{
+char *profile_list_normalize(char *list) {
 	/* Remove redundant commas.
 	 *
 	 * As result is always shorter than original,
@@ -1894,7 +2044,7 @@ char *profile_list_compress(char *list)
 			/* Include non-empty item */
 			if (!*item)
 				in[i] = 0;
-			/* Remove all allready included items */
+			/* Remove all already included items */
 			for (k = 0; k < i; ++k)
 				in[k] = 0;
 			break;
@@ -1926,4 +2076,10 @@ void profile_list_augment(char **list, const char *items)
 		errExit("asprintf");
 	free(*list);
 	*list = profile_list_compress(tmp);
+
+	// lists should not grow indefinitely
+	if (strlen(*list) > MAX_LIST) {
+		fprintf(stderr, "Error: argument list is too long\n");
+		exit(1);
+	}
 }

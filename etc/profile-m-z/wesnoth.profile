@@ -10,10 +10,12 @@ noblacklist ${HOME}/.cache/wesnoth
 noblacklist ${HOME}/.config/wesnoth
 noblacklist ${HOME}/.local/share/wesnoth
 
+# Allow lua (blacklisted by disable-interpreters.inc)
+include allow-lua.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.cache/wesnoth
@@ -37,3 +39,5 @@ seccomp
 
 private-dev
 private-tmp
+
+restrict-namespaces

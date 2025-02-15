@@ -12,12 +12,12 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.frogatto
 whitelist ${HOME}/.frogatto
+whitelist /usr/libexec/frogatto
 whitelist /usr/share/frogatto
 include whitelist-common.inc
 include whitelist-runuser-common.inc
@@ -38,15 +38,16 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin frogatto,sh
 private-cache
 private-dev
-private-etc machine-id
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

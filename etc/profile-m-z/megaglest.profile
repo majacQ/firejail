@@ -8,11 +8,12 @@ include globals.local
 
 noblacklist ${HOME}/.megaglest
 
+include allow-lua.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -20,6 +21,8 @@ include disable-xdg.inc
 mkdir ${HOME}/.megaglest
 whitelist ${HOME}/.megaglest
 whitelist /usr/share/megaglest
+# Debian version
+whitelist /usr/share/games/megaglest
 include whitelist-common.inc
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
@@ -40,7 +43,6 @@ novideo
 protocol unix,inet,inet6,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
@@ -51,3 +53,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

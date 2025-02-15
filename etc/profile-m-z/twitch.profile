@@ -1,5 +1,5 @@
 # Firejail profile for twitch
-# Description: Unofficial electron based desktop warpper for Twitch
+# Description: Unofficial electron based desktop wrapper for Twitch
 # This file is overwritten after every install/update
 # Persistent local customizations
 include twitch.local
@@ -16,10 +16,10 @@ include disable-shell.inc
 
 mkdir ${HOME}/.config/Twitch
 whitelist ${HOME}/.config/Twitch
+whitelist /opt/Twitch
 
-private-bin twitch
-private-etc alsa,alternatives,asound.conf,ati,bumblebee,ca-certificates,crypto-policies,drirc,fonts,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,mime.types,nsswitch.conf,nvidia,pki,pulse,resolv.conf,selinux,ssl,X11,xdg
-private-opt Twitch
+private-bin electron,electron[0-9],electron[0-9][0-9],twitch
+private-etc @tls-ca,@x11,bumblebee,host.conf,mime.types
 
 # Redirect
-include electron.profile
+include electron-common.profile

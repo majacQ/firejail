@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
 # This file is part of Firejail project
-# Copyright (C) 2014-2021 Firejail Authors
+# Copyright (C) 2014-2025 Firejail Authors
 # License GPL v2
 
 set timeout 10
@@ -14,20 +14,17 @@ expect {
 }
 expect {
 	timeout {puts "TESTING ERROR 1\n";exit}
-	"data.architecture"
-}
-expect {
-	timeout {puts "TESTING ERROR 2\n";exit}
 	"monitoring pid"
-}
-expect {
-	timeout {puts "TESTING ERROR 3\n";exit}
-	"Sandbox monitor: waitpid"
-}
-expect {
-	timeout {puts "TESTING ERROR 4\n";exit}
-	"Parent is shutting down"
 }
 sleep 1
 
+send -- "ls\r"
+expect {
+	timeout {puts "TESTING ERROR 2\n";exit}
+	"not permitted"
+}
+
+
+send -- "exit\r"
+after 100
 puts "all done\n"

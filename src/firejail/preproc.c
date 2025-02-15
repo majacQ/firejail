@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -18,15 +18,101 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 #include "firejail.h"
+#include <sys/file.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <fcntl.h>
 
 static int tmpfs_mounted = 0;
 
+static void preproc_lock_file(const char *path, int *lockfd_ptr) {
+	assert(path != NULL);
+	assert(lockfd_ptr != NULL);
+
+	long pid = (long)getpid();
+	if (arg_debug)
+		fprintf(stderr, "pid=%ld: locking %s ...\n", pid, path);
+
+	if (*lockfd_ptr != -1) {
+		if (arg_debug)
+			fprintf(stderr, "pid=%ld: already locked %s\n", pid, path);
+		return;
+	}
+
+	int lockfd = open(path, O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
+	if (lockfd == -1) {
+		fprintf(stderr, "Error: cannot create a lockfile at %s\n", path);
+		errExit("open");
+	}
+
+	if (fchown(lockfd, 0, 0) == -1) {
+		fprintf(stderr, "Error: cannot chown root:root %s\n", path);
+		errExit("fchown");
+	}
+
+	if (flock(lockfd, LOCK_EX) == -1) {
+		fprintf(stderr, "Error: cannot lock %s\n", path);
+		errExit("flock");
+	}
+
+	*lockfd_ptr = lockfd;
+	if (arg_debug)
+		fprintf(stderr, "pid=%ld: locked %s\n", pid, path);
+}
+
+static void preproc_unlock_file(const char *path, int *lockfd_ptr) {
+	assert(path != NULL);
+	assert(lockfd_ptr != NULL);
+
+	long pid = (long)getpid();
+	if (arg_debug)
+		fprintf(stderr, "pid=%ld: unlocking %s ...\n", pid, path);
+
+	int lockfd = *lockfd_ptr;
+	if (lockfd == -1) {
+		if (arg_debug)
+			fprintf(stderr, "pid=%ld: already unlocked %s\n", pid, path);
+		return;
+	}
+
+	if (flock(lockfd, LOCK_UN) == -1) {
+		fprintf(stderr, "Error: cannot unlock %s\n", path);
+		errExit("flock");
+	}
+
+	if (close(lockfd) == -1) {
+		fprintf(stderr, "Error: cannot close %s\n", path);
+		errExit("close");
+	}
+
+	*lockfd_ptr = -1;
+	if (arg_debug)
+		fprintf(stderr, "pid=%ld: unlocked %s\n", pid, path);
+}
+
+void preproc_lock_firejail_dir(void) {
+	preproc_lock_file(RUN_DIRECTORY_LOCK_FILE, &lockfd_directory);
+}
+
+void preproc_unlock_firejail_dir(void) {
+	preproc_unlock_file(RUN_DIRECTORY_LOCK_FILE, &lockfd_directory);
+}
+
+void preproc_lock_firejail_network_dir(void) {
+	preproc_lock_file(RUN_NETWORK_LOCK_FILE, &lockfd_network);
+}
+
+void preproc_unlock_firejail_network_dir(void) {
+	preproc_unlock_file(RUN_NETWORK_LOCK_FILE, &lockfd_network);
+}
+
 // build /run/firejail directory
-void preproc_build_firejail_dir(void) {
+//
+// Note: This creates the base directory of the rundir lockfile;
+// it should be called before preproc_lock_firejail_dir().
+void preproc_build_firejail_dir_unlocked(void) {
 	struct stat s;
 
 	// CentOS 6 doesn't have /run directory
@@ -34,58 +120,38 @@ void preproc_build_firejail_dir(void) {
 		create_empty_dir_as_root(RUN_FIREJAIL_BASEDIR, 0755);
 	}
 
-	if (stat(RUN_FIREJAIL_DIR, &s)) {
-		create_empty_dir_as_root(RUN_FIREJAIL_DIR, 0755);
-	}
+	create_empty_dir_as_root(RUN_FIREJAIL_DIR, 0755);
+}
 
-	if (stat(RUN_FIREJAIL_NETWORK_DIR, &s)) {
-		create_empty_dir_as_root(RUN_FIREJAIL_NETWORK_DIR, 0755);
-	}
+// build directory hierarchy under /run/firejail
+//
+// Note: Remounts have timing hazards. This function should
+// only be called after acquiring the directory lock via
+// preproc_lock_firejail_dir().
+void preproc_build_firejail_dir_locked(void) {
+	create_empty_dir_as_root(RUN_FIREJAIL_NETWORK_DIR, 0755);
+	create_empty_dir_as_root(RUN_FIREJAIL_BANDWIDTH_DIR, 0755);
+	create_empty_dir_as_root(RUN_FIREJAIL_NAME_DIR, 0755);
+	create_empty_dir_as_root(RUN_FIREJAIL_PROFILE_DIR, 0755);
+	create_empty_dir_as_root(RUN_FIREJAIL_X11_DIR, 0755);
+	create_empty_dir_as_root(RUN_FIREJAIL_APPIMAGE_DIR, 0755);
+	create_empty_dir_as_root(RUN_FIREJAIL_LIB_DIR, 0755);
+	create_empty_dir_as_root(RUN_MNT_DIR, 0755);
 
-	if (stat(RUN_FIREJAIL_BANDWIDTH_DIR, &s)) {
-		create_empty_dir_as_root(RUN_FIREJAIL_BANDWIDTH_DIR, 0755);
-	}
+	// restricted search permission
+	// only root should be able to lock files in this directory
+	create_empty_dir_as_root(RUN_FIREJAIL_SANDBOX_DIR, 0700);
 
-	if (stat(RUN_FIREJAIL_NAME_DIR, &s)) {
-		create_empty_dir_as_root(RUN_FIREJAIL_NAME_DIR, 0755);
-	}
+#ifdef HAVE_DBUSPROXY
+	create_empty_dir_as_root(RUN_FIREJAIL_DBUS_DIR, 0755);
+	fs_remount(RUN_FIREJAIL_DBUS_DIR, MOUNT_NOEXEC, 0);
+#endif
 
-	if (stat(RUN_FIREJAIL_PROFILE_DIR, &s)) {
-		create_empty_dir_as_root(RUN_FIREJAIL_PROFILE_DIR, 0755);
-	}
-
-	if (stat(RUN_FIREJAIL_X11_DIR, &s)) {
-		create_empty_dir_as_root(RUN_FIREJAIL_X11_DIR, 0755);
-	}
-
-	if (stat(RUN_FIREJAIL_DBUS_DIR, &s)) {
-		create_empty_dir_as_root(RUN_FIREJAIL_DBUS_DIR, 0755);
-		if (arg_debug)
-			printf("Remounting the " RUN_FIREJAIL_DBUS_DIR
-				   " directory as noexec\n");
-		if (mount(RUN_FIREJAIL_DBUS_DIR, RUN_FIREJAIL_DBUS_DIR, NULL,
-				  MS_BIND, NULL) == -1)
-			errExit("mounting " RUN_FIREJAIL_DBUS_DIR);
-		if (mount(NULL, RUN_FIREJAIL_DBUS_DIR, NULL,
-				  MS_REMOUNT | MS_BIND | MS_NOSUID | MS_NOEXEC | MS_NODEV,
-				  "mode=755,gid=0") == -1)
-			errExit("remounting " RUN_FIREJAIL_DBUS_DIR);
-	}
-
-	if (stat(RUN_FIREJAIL_APPIMAGE_DIR, &s)) {
-		create_empty_dir_as_root(RUN_FIREJAIL_APPIMAGE_DIR, 0755);
-	}
-
-	if (stat(RUN_FIREJAIL_LIB_DIR, &s)) {
-		create_empty_dir_as_root(RUN_FIREJAIL_LIB_DIR, 0755);
-	}
-
-	if (stat(RUN_MNT_DIR, &s)) {
-		create_empty_dir_as_root(RUN_MNT_DIR, 0755);
-	}
+	create_empty_dir_as_root(RUN_RO_DIR, S_IRUSR);
+	fs_remount(RUN_RO_DIR, MOUNT_READONLY, 0);
 
 	create_empty_file_as_root(RUN_RO_FILE, S_IRUSR);
-	create_empty_dir_as_root(RUN_RO_DIR, S_IRUSR);
+	fs_remount(RUN_RO_FILE, MOUNT_READONLY, 0);
 }
 
 // build /run/firejail/mnt directory
@@ -121,10 +187,22 @@ void preproc_mount_mnt_dir(void) {
 			copy_file(PATH_SECCOMP_MDWX, RUN_SECCOMP_MDWX, getuid(), getgid(), 0644); // root needed
 			copy_file(PATH_SECCOMP_MDWX_32, RUN_SECCOMP_MDWX_32, getuid(), getgid(), 0644); // root needed
 		}
-		// as root, create empty RUN_SECCOMP_PROTOCOL and RUN_SECCOMP_POSTEXEC files
+		// as root, create empty RUN_SECCOMP_PROTOCOL, RUN_SECCOMP_NS and RUN_SECCOMP_POSTEXEC files
 		create_empty_file_as_root(RUN_SECCOMP_PROTOCOL, 0644);
 		if (set_perms(RUN_SECCOMP_PROTOCOL, getuid(), getgid(), 0644))
 			errExit("set_perms");
+		if (cfg.restrict_namespaces) {
+			copy_file(PATH_SECCOMP_NAMESPACES, RUN_SECCOMP_NS, getuid(), getgid(), 0644); // root needed
+			copy_file(PATH_SECCOMP_NAMESPACES_32, RUN_SECCOMP_NS_32, getuid(), getgid(), 0644); // root needed
+#if 0
+			create_empty_file_as_root(RUN_SECCOMP_NS, 0644);
+			if (set_perms(RUN_SECCOMP_NS, getuid(), getgid(), 0644))
+				errExit("set_perms");
+			create_empty_file_as_root(RUN_SECCOMP_NS_32, 0644);
+			if (set_perms(RUN_SECCOMP_NS_32, getuid(), getgid(), 0644))
+				errExit("set_perms");
+#endif
+		}
 		create_empty_file_as_root(RUN_SECCOMP_POSTEXEC, 0644);
 		if (set_perms(RUN_SECCOMP_POSTEXEC, getuid(), getgid(), 0644))
 			errExit("set_perms");

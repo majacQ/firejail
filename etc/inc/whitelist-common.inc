@@ -10,19 +10,16 @@ whitelist ${HOME}/.asoundrc
 whitelist ${HOME}/.config/ibus
 whitelist ${HOME}/.config/mimeapps.list
 whitelist ${HOME}/.config/pkcs11
-read-only ${HOME}/.config/pkcs11
 whitelist ${HOME}/.config/user-dirs.dirs
-read-only ${HOME}/.config/user-dirs.dirs
 whitelist ${HOME}/.config/user-dirs.locale
-read-only ${HOME}/.config/user-dirs.locale
 whitelist ${HOME}/.drirc
 whitelist ${HOME}/.icons
 ?HAS_APPIMAGE: whitelist ${HOME}/.local/share/appimagekit
 whitelist ${HOME}/.local/share/applications
-read-only ${HOME}/.local/share/applications
 whitelist ${HOME}/.local/share/icons
 whitelist ${HOME}/.local/share/mime
 whitelist ${HOME}/.mime.types
+whitelist ${HOME}/.sndio/cookie
 whitelist ${HOME}/.uim.d
 
 # dconf
@@ -67,7 +64,9 @@ whitelist ${HOME}/.config/kdeglobals
 whitelist ${HOME}/.config/kio_httprc
 whitelist ${HOME}/.config/kioslaverc
 whitelist ${HOME}/.config/ksslcablacklist
+whitelist ${HOME}/.config/lxqt
 whitelist ${HOME}/.config/qt5ct
+whitelist ${HOME}/.config/qt6ct
 whitelist ${HOME}/.config/qtcurve
 whitelist ${HOME}/.kde/share/config/kdeglobals
 whitelist ${HOME}/.kde/share/config/kio_httprc
@@ -82,3 +81,8 @@ whitelist ${HOME}/.kde4/share/config/ksslcablacklist
 whitelist ${HOME}/.kde4/share/config/oxygenrc
 whitelist ${HOME}/.kde4/share/icons
 whitelist ${HOME}/.local/share/qt5ct
+whitelist ${HOME}/.local/share/qt6ct
+
+# NixOS specific to resolve binary paths in
+# user environment
+whitelist ${HOME}/.nix-profile

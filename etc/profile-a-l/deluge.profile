@@ -13,10 +13,9 @@ include allow-python2.inc
 include allow-python3.inc
 
 include disable-common.inc
-# include disable-devel.inc
+#include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.config/deluge
@@ -37,11 +36,12 @@ nosound
 notv
 nou2f
 novideo
-protocol unix,inet,inet6
+protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
 # deluge is using python on Debian
 private-bin deluge,deluge-console,deluge-gtk,deluge-web,deluged,python*,sh,uname
 private-dev
 private-tmp
+
+restrict-namespaces

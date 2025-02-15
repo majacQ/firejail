@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -30,15 +29,15 @@ notv
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 private-bin bash,jerry,sh,stockfish
 private-dev
-private-etc fonts,gtk-2.0,gtk-3.0
+private-etc @x11
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

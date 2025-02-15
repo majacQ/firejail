@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 #include "firemon.h"
+#include "../include/gcov_wrapper.h"
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -46,7 +47,7 @@ static char *get_user_name(uid_t uid) {
 
 static char *get_header(void) {
 	char *rv;
-	if (asprintf(&rv, "%-5.5s %-9.9s %-8.8s %-8.8s %-5.5s %-4.4s %-9.9s %s",
+	if (asprintf(&rv, "%-7.7s %-9.9s %-8.8s %-8.8s %-5.5s %-4.4s %-9.9s %s",
 		"PID", "User", "RES(KiB)", "SHR(KiB)", "CPU%", "Prcs", "Uptime", "Command") == -1)
 		errExit("asprintf");
 
@@ -153,8 +154,8 @@ static char *print_top(unsigned index, unsigned parent, unsigned *utime, unsigne
 
 		// cpu
 		itv *= clocktick;
-		float ud = (float) (*utime - pids[index].utime) / itv * 100;
-		float sd = (float) (*stime - pids[index].stime) / itv * 100;
+		float ud = (float) (*utime - pids[index].option.top.utime) / itv * 100;
+		float sd = (float) (*stime - pids[index].option.top.stime) / itv * 100;
 		float cd = ud + sd;
 		*cpu = cd;
 		char cpu_str[10];
@@ -164,8 +165,9 @@ static char *print_top(unsigned index, unsigned parent, unsigned *utime, unsigne
 		char prcs_str[10];
 		snprintf(prcs_str, 10, "%d", *cnt);
 
-		if (asprintf(&rv, "%-5.5s %-9.9s %-8.8s %-8.8s %-5.5s %-4.4s %-9.9s %s",
-		                 pidstr, ptruser, rss, shared, cpu_str, prcs_str, uptime_str, ptrcmd) == -1)
+		if (asprintf(&rv, "%-7.7s %-9.9s %-8.8s %-8.8s %-5.5s %-4.4s %-9.9s %s",
+			     pidstr, ptruser, rss, shared, cpu_str, prcs_str,
+			     uptime_str, ptrcmd) == -1)
 			errExit("asprintf");
 
 		if (cmd)
@@ -176,6 +178,34 @@ static char *print_top(unsigned index, unsigned parent, unsigned *utime, unsigne
 	}
 
 	return rv;
+}
+
+// recursivity!!!
+void pid_store_cpu(unsigned index, unsigned parent, unsigned *utime, unsigned *stime) {
+	if (pids[index].level == 1) {
+		*utime = 0;
+		*stime = 0;
+	}
+
+	// Remove unused parameter warning
+	(void)parent;
+
+	unsigned utmp = 0;
+	unsigned stmp = 0;
+	pid_get_cpu_time(index, &utmp, &stmp);
+	*utime += utmp;
+	*stime += stmp;
+
+	unsigned i;
+	for (i = index + 1; i < (unsigned)max_pids; i++) {
+		if (pids[i].parent == (pid_t)index)
+			pid_store_cpu(i, index, utime, stime);
+	}
+
+	if (pids[index].level == 1) {
+		pids[index].option.top.utime = *utime;
+		pids[index].option.top.stime = *stime;
+	}
 }
 
 
@@ -266,7 +296,7 @@ void top(void) {
 
 		// set pid table
 		int i;
-		int itv = 1; // 1 second  interval
+		int itv = 3; // 3 second interval
 		pid_read(0);
 
 		// start cpu measurements
@@ -326,8 +356,7 @@ void top(void) {
 			}
 		}
 		head_print(col, row);
-#ifdef HAVE_GCOV
-			__gcov_flush();
-#endif
+
+		__gcov_flush();
 	}
 }

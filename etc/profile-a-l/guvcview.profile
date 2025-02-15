@@ -1,5 +1,5 @@
 # Firejail profile for guvcview
-# Description: GTK+ base UVC Viewer
+# Description: GTK-based UVC Viewer
 # This file is overwritten after every install/update
 # Persistent local customizations
 include guvcview.local
@@ -15,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -42,15 +41,16 @@ nou2f
 protocol unix,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin guvcview
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,bumblebee,dconf,drirc,fonts,glvnd,gtk-3.0,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,machine-id,nvidia,pango,pulse,X11
+private-etc @x11,bumblebee,glvnd
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

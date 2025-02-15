@@ -1,5 +1,5 @@
 # Firejail profile for tvbrowser
-# Description: java tv programm form tvbrowser.org
+# Description: java tv program form tvbrowser.org
 # This file is overwritten after every install/update
 # Persistent local customizations
 include tvbrowser.local
@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -42,7 +41,6 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
@@ -52,3 +50,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

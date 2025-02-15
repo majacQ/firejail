@@ -13,16 +13,16 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 whitelist /usr/share/ark
+include whitelist-run-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
 
 apparmor
 caps.drop all
-# net none
+#net none
 netfilter
 nodvd
 nogroups
@@ -35,7 +35,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 
 private-bin 7z,ark,bash,lrzip,lsar,lz4,lzop,p7zip,rar,sh,tclsh,unar,unrar,unzip,zip,zipinfo
 #private-etc alternatives,drirc,fonts,group,kde5rc,mtab,passwd,samba,smb.conf,xdg
@@ -43,5 +42,7 @@ private-bin 7z,ark,bash,lrzip,lsar,lz4,lzop,p7zip,rar,sh,tclsh,unar,unrar,unzip,
 private-dev
 private-tmp
 
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
+
+restrict-namespaces

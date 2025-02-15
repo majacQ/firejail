@@ -17,15 +17,20 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
+whitelist ${HOME}/.config/ghostwriter
+whitelist ${HOME}/.local/share/ghostwriter
+whitelist ${DOCUMENTS}
+whitelist ${DOWNLOADS}
+whitelist ${PICTURES}
 whitelist /usr/share/ghostwriter
+whitelist /usr/share/mathjax
 whitelist /usr/share/mozilla-dicts
-whitelist /usr/share/texlive
 whitelist /usr/share/pandoc*
+include whitelist-common.inc
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
@@ -46,15 +51,16 @@ novideo
 protocol unix,inet,inet6,netlink
 seccomp !chroot
 seccomp.block-secondary
-shell none
-#tracelog -- breaks
+#tracelog # breaks
 
-private-bin context,gettext,ghostwriter,latex,mktexfmt,pandoc,pdflatex,pdfroff,prince,weasyprint,wkhtmltopdf
+private-bin affixcompress,analyze,chmorph,cmark,context,gettext,ghostwriter,hunspell,hunzip,hzip,latex,makealias,mktexfmt,multimarkdown,munch,pandoc,pdflatex,pdfroff,prince,unmunch,weasyprint,wkhtmltopdf,wordforms,wordlist2hunspell
 private-cache
 private-dev
 # passwd,login.defs,firejail are a temporary workaround for #2877 and can be removed once it is fixed
-private-etc alternatives,ca-certificates,crypto-policies,dbus-1,dconf,firejail,fonts,gconf,groups,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,login.defs,machine-id,mime.types,nsswitch.conf,pango,passwd,pki,protocols,resolv.conf,rpc,services,ssl,texlive,Trolltech.conf,X11,xdg
+private-etc @tls-ca,@x11,dbus-1,gconf,host.conf,mime.types,rpc,services,texlive
 private-tmp
 
 dbus-user filter
 dbus-system none
+
+#restrict-namespaces

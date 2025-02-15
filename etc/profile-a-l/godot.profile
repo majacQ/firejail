@@ -14,7 +14,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -32,15 +31,15 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
-
-# private-bin godot
+#private-bin godot
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,ca-certificates,crypto-policies,drirc,fonts,machine-id,mono,nsswitch.conf,openal,pki,pulse,resolv.conf,ssl
+private-etc @games,@tls-ca,@x11,mono
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

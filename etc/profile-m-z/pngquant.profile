@@ -15,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -39,20 +38,19 @@ nosound
 notv
 nou2f
 novideo
-# protocol can be empty, but this is not yet supported see #639
-protocol inet
-seccomp
-shell none
+# block socket syscall to simulate empty protocol option (see #639)
+seccomp socket
 tracelog
 x11 none
 
 private-bin pngquant
 private-cache
 private-dev
-private-etc alternatives
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

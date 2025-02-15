@@ -1,5 +1,5 @@
- /*
- * Copyright (C) 2014-2021 Firejail Authors
+/*
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -17,16 +17,15 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
+
+#include "../include/common.h"
 
 #define MAXBUF 2048
 // stats
 static int cnt_profiles = 0;
 static int cnt_apparmor = 0;
 static int cnt_seccomp = 0;
+static int cnt_restrict_namespaces = 0;
 static int cnt_caps = 0;
 static int cnt_dbus_system_none = 0;
 static int cnt_dbus_user_none = 0;
@@ -40,6 +39,7 @@ static int cnt_privatebin = 0;
 static int cnt_privatedev = 0;
 static int cnt_privatetmp = 0;
 static int cnt_privateetc = 0;
+static int cnt_privatelib = 0;
 static int cnt_whitelistvar = 0;	// include whitelist-var-common.inc
 static int cnt_whitelistrunuser = 0;	// include whitelist-runuser-common.inc
 static int cnt_whitelistusrshare = 0;	// include whitelist-usr-share-common.inc
@@ -58,6 +58,7 @@ static int arg_privatebin = 0;
 static int arg_privatedev = 0;
 static int arg_privatetmp = 0;
 static int arg_privateetc = 0;
+static int arg_privatelib = 0;
 static int arg_whitelistvar = 0;
 static int arg_whitelistrunuser = 0;
 static int arg_whitelistusrshare = 0;
@@ -67,38 +68,45 @@ static int arg_dbus_system_none = 0;
 static int arg_dbus_user_none = 0;
 static int arg_whitelisthome = 0;
 static int arg_noroot = 0;
-
+static int arg_print_blacklist = 0;
+static int arg_print_whitelist = 0;
+static int arg_restrict_namespaces = 0;
 
 static char *profile = NULL;
 
+static const char *const usage_str =
+	"profstats - print profile statistics\n"
+	"Usage: profstats [options] file[s]\n"
+	"Options:\n"
+	"   --apparmor - print profiles without apparmor\n"
+	"   --caps - print profiles without caps\n"
+	"   --dbus-system-none - print profiles without \"dbus-system none\"\n"
+	"   --dbus-user-none - print profiles without \"dbus-user none\"\n"
+	"   --ssh - print profiles without \"include disable-common.inc\"\n"
+	"   --noexec - print profiles without \"include disable-exec.inc\"\n"
+	"   --noroot - print profiles without \"noroot\"\n"
+	"   --private-bin - print profiles without private-bin\n"
+	"   --private-dev - print profiles without private-dev\n"
+	"   --private-etc - print profiles without private-etc\n"
+	"   --private-tmp - print profiles without private-tmp\n"
+	"   --print-blacklist - print all --blacklist for a profile\n"
+	"   --print-whitelist - print all --private and --whitelist for a profile\n"
+	"   --seccomp - print profiles without seccomp\n"
+	"   --memory-deny-write-execute - print profiles without \"memory-deny-write-execute\"\n"
+	"   --restrict-namespaces - print profiles without \"restrict-namespaces\"\n"
+	"   --whitelist-home - print profiles whitelisting home directory\n"
+	"   --whitelist-var - print profiles without \"include whitelist-var-common.inc\"\n"
+	"   --whitelist-runuser - print profiles without \"include whitelist-runuser-common.inc\" or \"blacklist ${RUNUSER}\"\n"
+	"   --whitelist-usrshare - print profiles without \"include whitelist-usr-share-common.inc\"\n"
+	"   --debug\n";
 
 static void usage(void) {
-	printf("proftool - print profile statistics\n");
-	printf("Usage: proftool [options] file[s]\n");
-	printf("Options:\n");
-	printf("   --apparmor - print profiles without apparmor\n");
-	printf("   --caps - print profiles without caps\n");
-	printf("   --dbus-system-none - profiles without  \"dbus-system none\"\n");
-	printf("   --dbus-user-none - profiles without  \"dbus-user none\"\n");
-	printf("   --ssh - print profiles without \"include disable-common.inc\"\n");
-	printf("   --noexec - print profiles without \"include disable-exec.inc\"\n");
-	printf("   --noroot - print profiles without \"noroot\"\n");
-	printf("   --private-bin - print profiles without private-bin\n");
-	printf("   --private-dev - print profiles without private-dev\n");
-	printf("   --private-etc - print profiles without private-etc\n");
-	printf("   --private-tmp - print profiles without private-tmp\n");
-	printf("   --seccomp - print profiles without seccomp\n");
-	printf("   --memory-deny-write-execute - profile without \"memory-deny-write-execute\"\n");
-	printf("   --whitelist-home - print profiles whitelisting home directory\n");
-	printf("   --whitelist-var - print profiles without \"include whitelist-var-common.inc\"\n");
-	printf("   --whitelist-runuser - print profiles without \"include whitelist-runuser-common.inc\" or \"blacklist ${RUNUSER}\"\n");
-	printf("   --whitelist-usrshare - print profiles without \"include whitelist-usr-share-common.inc\"\n");
-	printf("   --debug\n");
-	printf("\n");
+	puts(usage_str);
 }
 
-void process_file(const char *fname) {
+static void process_file(char *fname) {
 	assert(fname);
+	char *tmpfname = NULL;
 
 	if (arg_debug)
 		printf("processing #%s#\n", fname);
@@ -107,9 +115,19 @@ void process_file(const char *fname) {
 
 	FILE *fp = fopen(fname, "r");
 	if (!fp) {
-		fprintf(stderr, "Warning: cannot open %s, while processing %s\n", fname, profile);
-		level--;
-		return;
+		// the file was not found in the current directory
+		// look for it in /etc/firejail directory
+		if (asprintf(&tmpfname, "%s/%s", SYSCONFDIR, fname) == -1)
+			errExit("asprintf");
+
+		fp = fopen(tmpfname, "r");
+		if (!fp) {
+			fprintf(stderr, "Warning: cannot open %s or %s, while processing %s\n", fname, tmpfname, profile);
+			free(tmpfname);
+			level--;
+			return;
+		}
+		fname = tmpfname;
 	}
 
 	int have_include_local = 0;
@@ -125,8 +143,22 @@ void process_file(const char *fname) {
 		if (*ptr == '\n' || *ptr == '#')
 			continue;
 
+		if (arg_print_blacklist) {
+			if (strncmp(ptr, "blacklist", 9) == 0 ||
+			    strncmp(ptr, "noblacklist", 11) == 0)
+				printf("%s: %s\n", fname, ptr);
+		}
+		else if (arg_print_whitelist) {
+			if (strncmp(ptr, "whitelist", 9) == 0 ||
+			    strncmp(ptr, "nowhitelist", 11) == 0 ||
+			    strncmp(ptr, "private", 7) == 0)
+				printf("%s: %s\n", fname, ptr);
+		}
+
 		if (strncmp(ptr, "seccomp", 7) == 0)
 			cnt_seccomp++;
+		if (strncmp(ptr, "restrict-namespaces", 19) == 0)
+			cnt_restrict_namespaces++;
 		else if (strncmp(ptr, "caps", 4) == 0)
 			cnt_caps++;
 		else if (strncmp(ptr, "include disable-exec.inc", 24) == 0)
@@ -136,7 +168,7 @@ void process_file(const char *fname) {
 		else if (strncmp(ptr, "include whitelist-var-common.inc", 32) == 0)
 			cnt_whitelistvar++;
 		else if (strncmp(ptr, "include whitelist-runuser-common.inc", 36) == 0 ||
-		        strncmp(ptr, "blacklist ${RUNUSER}", 20) == 0)
+			strncmp(ptr, "blacklist ${RUNUSER}", 20) == 0)
 			cnt_whitelistrunuser++;
 		else if (strncmp(ptr, "include whitelist-common.inc", 28) == 0)
 			cnt_whitelisthome++;
@@ -158,6 +190,8 @@ void process_file(const char *fname) {
 			cnt_privatetmp++;
 		else if (strncmp(ptr, "private-etc", 11) == 0)
 			cnt_privateetc++;
+		else if (strncmp(ptr, "private-lib", 11) == 0)
+			cnt_privatelib++;
 		else if (strncmp(ptr, "dbus-system none", 16) == 0)
 			cnt_dbus_system_none++;
 		else if (strncmp(ptr, "dbus-system", 11) == 0)
@@ -190,6 +224,8 @@ void process_file(const char *fname) {
 	if (!have_include_local)
 		printf("No include .local found in %s\n", fname);
 	level--;
+	if (tmpfname)
+		free(tmpfname);
 }
 
 int main(int argc, char **argv) {
@@ -213,6 +249,8 @@ int main(int argc, char **argv) {
 			arg_caps = 1;
 		else if (strcmp(argv[i], "--seccomp") == 0)
 			arg_seccomp = 1;
+		else if (strcmp(argv[i], "--restrict-namespaces") == 0)
+			arg_restrict_namespaces = 1;
 		else if (strcmp(argv[i], "--memory-deny-write-execute") == 0)
 			arg_mdwx = 1;
 		else if (strcmp(argv[i], "--noexec") == 0)
@@ -227,6 +265,10 @@ int main(int argc, char **argv) {
 			arg_privatetmp = 1;
 		else if (strcmp(argv[i], "--private-etc") == 0)
 			arg_privateetc = 1;
+		else if (strcmp(argv[i], "--print-blacklist") == 0)
+			arg_print_blacklist = 1;
+		else if (strcmp(argv[i], "--print-whitelist") == 0)
+			arg_print_whitelist = 1;
 		else if (strcmp(argv[i], "--whitelist-home") == 0)
 			arg_whitelisthome = 1;
 		else if (strcmp(argv[i], "--whitelist-var") == 0)
@@ -243,10 +285,10 @@ int main(int argc, char **argv) {
 			arg_dbus_user_none = 1;
 		else if (*argv[i] == '-') {
 			fprintf(stderr, "Error: invalid option %s\n", argv[i]);
-		 	return 1;
-		 }
-		 else
-		 	break;
+			return 1;
+		}
+		else
+			break;
 	}
 
 	start = i;
@@ -258,7 +300,7 @@ int main(int argc, char **argv) {
 	for (i = start; i < argc; i++) {
 		cnt_profiles++;
 
-		// watch seccomp
+		int restrict_namespaces = cnt_restrict_namespaces;
 		int seccomp = cnt_seccomp;
 		int caps = cnt_caps;
 		int apparmor = cnt_apparmor;
@@ -268,6 +310,7 @@ int main(int argc, char **argv) {
 		int privatetmp = cnt_privatetmp;
 		int privatedev = cnt_privatedev;
 		int privateetc = cnt_privateetc;
+		int privatelib = cnt_privatelib;
 		int dotlocal = cnt_dotlocal;
 		int globalsdotlocal = cnt_globalsdotlocal;
 		int whitelisthome = cnt_whitelisthome;
@@ -300,6 +343,8 @@ int main(int argc, char **argv) {
 			cnt_whitelistrunuser = whitelistrunuser + 1;
 		if (cnt_seccomp > (seccomp + 1))
 			cnt_seccomp = seccomp + 1;
+		if (cnt_restrict_namespaces > (restrict_namespaces + 1))
+			cnt_restrict_namespaces = restrict_namespaces + 1;
 		if (cnt_dbus_user_none > (dbususernone + 1))
 			cnt_dbus_user_none = dbususernone + 1;
 		if (cnt_dbus_user_filter > (dbususerfilter + 1))
@@ -319,6 +364,8 @@ int main(int argc, char **argv) {
 			printf("No caps found in %s\n", argv[i]);
 		if (arg_seccomp && seccomp == cnt_seccomp)
 			printf("No seccomp found in %s\n", argv[i]);
+		if (arg_restrict_namespaces && restrict_namespaces == cnt_restrict_namespaces)
+			printf("No restrict-namespaces found in %s\n", argv[i]);
 		if (arg_noexec && noexec == cnt_noexec)
 			printf("No include disable-exec.inc found in %s\n", argv[i]);
 		if (arg_noroot && noroot == cnt_noroot)
@@ -331,6 +378,8 @@ int main(int argc, char **argv) {
 			printf("No private-tmp found in %s\n", argv[i]);
 		if (arg_privateetc && privateetc == cnt_privateetc)
 			printf("No private-etc found in %s\n", argv[i]);
+		if (arg_privatelib && privatelib == cnt_privatelib)
+			printf("No private-lib found in %s\n", argv[i]);
 		if (arg_whitelisthome && whitelisthome == cnt_whitelisthome)
 			printf("Home directory not whitelisted in %s\n", argv[i]);
 		if (arg_whitelistvar && whitelistvar == cnt_whitelistvar)
@@ -347,6 +396,9 @@ int main(int argc, char **argv) {
 		assert(level == 0);
 	}
 
+	if (arg_print_blacklist || arg_print_whitelist)
+		return 0;
+
 	printf("\n");
 	printf("Stats:\n");
 	printf("    profiles\t\t\t%d\n", cnt_profiles);
@@ -358,10 +410,12 @@ int main(int argc, char **argv) {
 	printf("    noexec\t\t\t%d   (include disable-exec.inc)\n", cnt_noexec);
 	printf("    noroot\t\t\t%d\n", cnt_noroot);
 	printf("    memory-deny-write-execute\t%d\n", cnt_mdwx);
+	printf("    restrict-namespaces\t\t%d\n", cnt_restrict_namespaces);
 	printf("    apparmor\t\t\t%d\n", cnt_apparmor);
 	printf("    private-bin\t\t\t%d\n", cnt_privatebin);
 	printf("    private-dev\t\t\t%d\n", cnt_privatedev);
 	printf("    private-etc\t\t\t%d\n", cnt_privateetc);
+	printf("    private-lib\t\t\t%d\n", cnt_privatelib);
 	printf("    private-tmp\t\t\t%d\n", cnt_privatetmp);
 	printf("    whitelist home directory\t%d\n", cnt_whitelisthome);
 	printf("    whitelist var\t\t%d   (include whitelist-var-common.inc)\n", cnt_whitelistvar);

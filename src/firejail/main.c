@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -20,6 +20,7 @@
 #include "firejail.h"
 #include "../include/pid.h"
 #include "../include/firejail_user.h"
+#include "../include/gcov_wrapper.h"
 #include "../include/syscall.h"
 #include "../include/seccomp.h"
 #define _GNU_SOURCE
@@ -31,7 +32,8 @@
 #include <dirent.h>
 #include <pwd.h>
 #include <errno.h>
-//#include <limits.h>
+
+#include <limits.h>
 #include <sys/file.h>
 #include <sys/prctl.h>
 #include <signal.h>
@@ -45,12 +47,12 @@
 #endif
 
 #ifdef __ia64__
-/* clone(2) has a different interface on ia64, as it needs to know
-   the size of the stack */
+/* clone(2) has a different interface on ia64, as it needs to know the size of
+ * the stack */
 int __clone2(int (*fn)(void *),
              void *child_stack_base, size_t stack_size,
              int flags, void *arg, ...
-              /* pid_t *ptid, struct user_desc *tls, pid_t *ctid */ );
+             /* pid_t *ptid, struct user_desc *tls, pid_t *ctid */ );
 #endif
 
 uid_t firejail_uid = 0;
@@ -61,6 +63,8 @@ gid_t firejail_gid = 0;
 static char child_stack[STACK_SIZE] __attribute__((aligned(STACK_ALIGNMENT)));		// space for child's stack
 
 Config cfg;					// configuration
+int lockfd_directory = -1;
+int lockfd_network = -1;
 int arg_private = 0;				// mount private /home and /tmp directoryu
 int arg_private_cache = 0;		// mount private home/.cache
 int arg_debug = 0;				// print debug messages
@@ -72,6 +76,8 @@ int arg_command = 0;				// -c
 int arg_overlay = 0;				// overlay option
 int arg_overlay_keep = 0;			// place overlay diff in a known directory
 int arg_overlay_reuse = 0;			// allow the reuse of overlays
+
+int arg_landlock_enforce = 0;		// enforce the Landlock ruleset
 
 int arg_seccomp = 0;				// enable default seccomp filter
 int arg_seccomp32 = 0;				// enable default seccomp filter for 32 bit arch
@@ -95,7 +101,11 @@ int arg_rlimit_fsize = 0;				// rlimit fsize
 int arg_rlimit_sigpending = 0;			// rlimit fsize
 int arg_rlimit_as = 0;				// rlimit as
 int arg_nogroups = 0;				// disable supplementary groups
-int arg_nonewprivs = 0;			// set the NO_NEW_PRIVS prctl
+#ifdef HAVE_FORCE_NONEWPRIVS
+int arg_nonewprivs = 1;			// set the NO_NEW_PRIVS prctl
+#else
+int arg_nonewprivs = 0;
+#endif
 int arg_noroot = 0;				// create a new user namespace and disable root user
 int arg_netfilter;				// enable netfilter
 int arg_netfilter6;				// enable netfilter6
@@ -103,9 +113,8 @@ char *arg_netfilter_file = NULL;			// netfilter file
 char *arg_netfilter6_file = NULL;		// netfilter6 file
 char *arg_netns = NULL;			// "ip netns"-created network namespace to use
 int arg_doubledash = 0;			// double dash
-int arg_shell_none = 0;			// run the program directly without a shell
 int arg_private_dev = 0;			// private dev directory
-int arg_keep_dev_shm = 0;                       // preserve /dev/shm
+int arg_keep_dev_shm = 0;			// preserve /dev/shm
 int arg_private_etc = 0;			// private etc directory
 int arg_private_opt = 0;			// private opt directory
 int arg_private_srv = 0;			// private srv directory
@@ -118,6 +127,7 @@ int arg_whitelist = 0;				// whitelist command
 int arg_nosound = 0;				// disable sound
 int arg_novideo = 0;			//disable video devices in /dev
 int arg_no3d;					// disable 3d hardware acceleration
+int arg_noprinters = 0;				// disable printers
 int arg_quiet = 0;				// no output for scripting
 int arg_join_network = 0;			// join only the network namespace
 int arg_join_filesystem = 0;			// join only the mount namespace
@@ -125,32 +135,42 @@ int arg_nice = 0;				// nice value configured
 int arg_ipc = 0;					// enable ipc namespace
 int arg_writable_etc = 0;			// writable etc
 int arg_keep_config_pulse = 0;			// disable automatic ~/.config/pulse init
+int arg_keep_shell_rc = 0;			// do not copy shell configuration from /etc/skel
 int arg_writable_var = 0;			// writable var
-int arg_keep_var_tmp = 0;                       // don't overwrite /var/tmp
+int arg_keep_var_tmp = 0;			// don't overwrite /var/tmp
 int arg_writable_run_user = 0;			// writable /run/user
 int arg_writable_var_log = 0;		// writable /var/log
 int arg_appimage = 0;				// appimage
 int arg_apparmor = 0;				// apparmor
+char *apparmor_profile = NULL;	// apparmor profile
+bool apparmor_replace = false;	// apparmor profile
 int arg_allow_debuggers = 0;			// allow debuggers
 int arg_x11_block = 0;				// block X11
 int arg_x11_xorg = 0;				// use X11 security extension
 int arg_allusers = 0;				// all user home directories visible
-int arg_machineid = 0;				// preserve /etc/machine-id
-int arg_allow_private_blacklist = 0; 		// blacklist things in private directories
+int arg_machineid = 0;				// spoof /etc/machine-id
+int arg_allow_private_blacklist = 0;		// blacklist things in private directories
 int arg_disable_mnt = 0;			// disable /mnt and /media
 int arg_noprofile = 0; // use default.profile if none other found/specified
 int arg_memory_deny_write_execute = 0;		// block writable and executable memory
 int arg_notv = 0;	// --notv
 int arg_nodvd = 0; // --nodvd
+int arg_notpm = 0; // --notpm
 int arg_nou2f = 0; // --nou2f
 int arg_noinput = 0; // --noinput
 int arg_deterministic_exit_code = 0;	// always exit with first child's exit status
+int arg_deterministic_shutdown = 0;	// shut down the sandbox if first child dies
+int arg_keep_fd_all = 0;		// inherit all file descriptors to sandbox
 DbusPolicy arg_dbus_user = DBUS_POLICY_ALLOW;	// --dbus-user
 DbusPolicy arg_dbus_system = DBUS_POLICY_ALLOW;	// --dbus-system
 const char *arg_dbus_log_file = NULL;
 int arg_dbus_log_user = 0;
 int arg_dbus_log_system = 0;
+int arg_tab = 0;
 int login_shell = 0;
+int just_run_the_shell = 0;
+int arg_netlock = 0;
+int arg_restrict_namespaces = 0;
 
 int parent_to_child_fds[2];
 int child_to_parent_fds[2];
@@ -188,13 +208,16 @@ static void my_handler(int s) {
 	logsignal(s);
 
 	if (waitpid(child, NULL, WNOHANG) == 0) {
-		if (has_handler(child, s)) // signals are not delivered if there is no handler yet
+		// child is pid 1 of a pid namespace:
+		// signals are not delivered if there is no handler yet
+		if (has_handler(child, s))
 			kill(child, s);
 		else
 			kill(child, SIGKILL);
 		waitpid(child, NULL, 0);
 	}
-	myexit(s);
+	release_sandbox_lock();
+	myexit(128 + s);
 }
 
 static void install_handler(void) {
@@ -237,6 +260,9 @@ static void init_cfg(int argc, char **argv) {
 	cfg.username = strdup(pw->pw_name);
 	if (!cfg.username)
 		errExit("strdup");
+	cfg.usershell = strdup(pw->pw_shell);
+	if (!cfg.usershell)
+		errExit("strdup");
 
 	// check user database
 	if (!firejail_user_check(cfg.username)) {
@@ -259,8 +285,8 @@ static void init_cfg(int argc, char **argv) {
 		fprintf(stderr, "Error: user %s doesn't have a user directory assigned\n", cfg.username);
 		exit(1);
 	}
+	check_homedir(pw->pw_dir);
 	cfg.homedir = clean_pathname(pw->pw_dir);
-	check_homedir();
 
 	// initialize random number generator
 	sandbox_pid = getpid();
@@ -330,7 +356,8 @@ errout:
 
 
 static void exit_err_feature(const char *feature) {
-	fprintf(stderr, "Error: %s feature is disabled in Firejail configuration file\n", feature);
+	fprintf(stderr, "Error: %s feature is disabled in Firejail configuration file %s\n",
+		feature, SYSCONFDIR "/firejail.config");
 	exit(1);
 }
 
@@ -348,10 +375,7 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 		exit(0);
 	}
 	else if (strcmp(argv[i], "--version") == 0) {
-		printf("firejail version %s\n", VERSION);
-		printf("\n");
-		print_compiletime_support();
-		printf("\n");
+		print_version_full();
 		exit(0);
 	}
 #ifdef HAVE_OVERLAYFS
@@ -401,6 +425,109 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 			exit_err_feature("x11");
 	}
 #endif
+	else if (strcmp(argv[i], "--nettrace") == 0) {
+		if (checkcfg(CFG_NETWORK)) {
+			if (getuid() != 0) {
+				fprintf(stderr, "Error: --nettrace is only available to root user\n");
+				exit(1);
+			}
+			netfilter_trace(0, LIBDIR "/firejail/fnettrace");
+		}
+		else
+			exit_err_feature("networking");
+		exit(0);
+	}
+	else if (strncmp(argv[i], "--nettrace=", 11) == 0) {
+		if (checkcfg(CFG_NETWORK)) {
+			if (getuid() != 0) {
+				fprintf(stderr, "Error: --nettrace is only available to root user\n");
+				exit(1);
+			}
+			pid_t pid = require_pid(argv[i] + 11);
+			netfilter_trace(pid, LIBDIR "/firejail/fnettrace");
+		}
+		else
+			exit_err_feature("networking");
+		exit(0);
+	}
+	else if (strcmp(argv[i], "--dnstrace") == 0) {
+		if (checkcfg(CFG_NETWORK)) {
+			if (getuid() != 0) {
+				fprintf(stderr, "Error: --dnstrace is only available to root user\n");
+				exit(1);
+			}
+			netfilter_trace(0, LIBDIR "/firejail/fnettrace-dns");
+		}
+		else
+			exit_err_feature("networking");
+		exit(0);
+	}
+	else if (strncmp(argv[i], "--dnstrace=", 11) == 0) {
+		if (checkcfg(CFG_NETWORK)) {
+			if (getuid() != 0) {
+				fprintf(stderr, "Error: --dnstrace is only available to root user\n");
+				exit(1);
+			}
+			pid_t pid = require_pid(argv[i] + 11);
+			netfilter_trace(pid, LIBDIR "/firejail/fnettrace-dns");
+		}
+		else
+			exit_err_feature("networking");
+		exit(0);
+	}
+	else if (strcmp(argv[i], "--snitrace") == 0) {
+		if (checkcfg(CFG_NETWORK)) {
+			if (getuid() != 0) {
+				fprintf(stderr, "Error: --snitrace is only available to root user\n");
+				exit(1);
+			}
+			netfilter_trace(0, LIBDIR "/firejail/fnettrace-sni");
+		}
+		else
+			exit_err_feature("networking");
+		exit(0);
+	}
+	else if (strncmp(argv[i], "--snitrace=", 11) == 0) {
+		if (checkcfg(CFG_NETWORK)) {
+			if (getuid() != 0) {
+				fprintf(stderr, "Error: --snitrace is only available to root user\n");
+				exit(1);
+			}
+			pid_t pid = require_pid(argv[i] + 11);
+			netfilter_trace(pid, LIBDIR "/firejail/fnettrace-sni");
+		}
+		else
+			exit_err_feature("networking");
+		exit(0);
+	}
+
+
+	else if (strcmp(argv[i], "--icmptrace") == 0) {
+		if (checkcfg(CFG_NETWORK)) {
+			if (getuid() != 0) {
+				fprintf(stderr, "Error: --icmptrace is only available to root user\n");
+				exit(1);
+			}
+			netfilter_trace(0, LIBDIR "/firejail/fnettrace-icmp");
+		}
+		else
+			exit_err_feature("networking");
+		exit(0);
+	}
+	else if (strncmp(argv[i], "--icmptrace=", 12) == 0) {
+		if (checkcfg(CFG_NETWORK)) {
+			if (getuid() != 0) {
+				fprintf(stderr, "Error: --icmptrace is only available to root user\n");
+				exit(1);
+			}
+			pid_t pid = require_pid(argv[i] + 12);
+			netfilter_trace(pid, LIBDIR "/firejail/fnettrace-icmp");
+		}
+		else
+			exit_err_feature("networking");
+		exit(0);
+	}
+
 #ifdef HAVE_NETWORK
 	else if (strncmp(argv[i], "--bandwidth=", 12) == 0) {
 		if (checkcfg(CFG_NETWORK)) {
@@ -612,8 +739,7 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 #ifdef HAVE_NETWORK
 	else if (strcmp(argv[i], "--netstats") == 0) {
 		if (checkcfg(CFG_NETWORK)) {
-			struct stat s;
-			if (stat("/proc/sys/kernel/grsecurity", &s) == 0 || pid_hidepid())
+			if (pid_hidepid())
 				sbox_run(SBOX_ROOT | SBOX_CAPS_HIDEPID | SBOX_SECCOMP | SBOX_ALLOW_STDIN,
 					2, PATH_FIREMON, "--netstats");
 			else
@@ -650,11 +776,11 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 				exit(1);
 			}
 			char *path = argv[i + 1];
-			 invalid_filename(path, 0); // no globbing
-			 if (strstr(path, "..")) {
-			 	fprintf(stderr, "Error: invalid file name %s\n", path);
-			 	exit(1);
-			 }
+			invalid_filename(path, 0); // no globbing
+			if (strstr(path, "..")) {
+				fprintf(stderr, "Error: invalid file name %s\n", path);
+				exit(1);
+			}
 
 			// get file
 			pid_t pid = require_pid(argv[i] + 6);
@@ -678,17 +804,17 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 				exit(1);
 			}
 			char *path1 = argv[i + 1];
-			 invalid_filename(path1, 0); // no globbing
-			 if (strstr(path1, "..")) {
-			 	fprintf(stderr, "Error: invalid file name %s\n", path1);
-			 	exit(1);
-			 }
+			invalid_filename(path1, 0); // no globbing
+			if (strstr(path1, "..")) {
+				fprintf(stderr, "Error: invalid file name %s\n", path1);
+				exit(1);
+			}
 			char *path2 = argv[i + 2];
-			 invalid_filename(path2, 0); // no globbing
-			 if (strstr(path2, "..")) {
-			 	fprintf(stderr, "Error: invalid file name %s\n", path2);
-			 	exit(1);
-			 }
+			invalid_filename(path2, 0); // no globbing
+			if (strstr(path2, "..")) {
+				fprintf(stderr, "Error: invalid file name %s\n", path2);
+				exit(1);
+			}
 
 			// get file
 			pid_t pid = require_pid(argv[i] + 6);
@@ -712,15 +838,15 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 				exit(1);
 			}
 			char *path = argv[i + 1];
-			 invalid_filename(path, 0); // no globbing
-			 if (strstr(path, "..")) {
-			 	fprintf(stderr, "Error: invalid file name %s\n", path);
-			 	exit(1);
-			 }
+			invalid_filename(path, 0); // no globbing
+			if (strstr(path, "..")) {
+				fprintf(stderr, "Error: invalid file name %s\n", path);
+				exit(1);
+			}
 
 			// list directory contents
 			if (!arg_debug)
-				 arg_quiet = 1;
+				arg_quiet = 1;
 			pid_t pid = require_pid(argv[i] + 5);
 			sandboxfs(SANDBOX_FS_LS, pid, path, NULL);
 			exit(0);
@@ -749,7 +875,7 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 
 			// write file contents to stdout
 			if (!arg_debug)
-				 arg_quiet = 1;
+				arg_quiet = 1;
 			pid_t pid = require_pid(argv[i] + 6);
 			sandboxfs(SANDBOX_FS_CAT, pid, path, NULL);
 			exit(0);
@@ -762,16 +888,9 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 		if (checkcfg(CFG_JOIN) || getuid() == 0) {
 			logargs(argc, argv);
 
-			if (arg_shell_none) {
-				if (argc <= (i+1)) {
-					fprintf(stderr, "Error: --shell=none set, but no command specified\n");
-					exit(1);
-				}
-				cfg.original_program_index = i + 1;
-			}
-
-			if (!cfg.shell && !arg_shell_none)
-				cfg.shell = guess_shell();
+			if (argc <= (i+1))
+				just_run_the_shell = 1;
+			cfg.original_program_index = i + 1;
 
 			// join sandbox by pid or by name
 			pid_t pid = require_pid(argv[i] + 7);
@@ -783,25 +902,18 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 
 	}
 	else if (strncmp(argv[i], "--join-or-start=", 16) == 0) {
-		// NOTE: this is first part of option handler,
-		// 		 sandbox name is set in other part
+		// Note: This is the first part of the option handler; the
+		// sandbox name is set in the other part
 		if (checkcfg(CFG_JOIN) || getuid() == 0) {
 			logargs(argc, argv);
 
-			if (arg_shell_none) {
-				if (argc <= (i+1)) {
-					fprintf(stderr, "Error: --shell=none set, but no command specified\n");
-					exit(1);
-				}
-				cfg.original_program_index = i + 1;
-			}
+			if (argc <= (i+1))
+				just_run_the_shell = 1;
+			cfg.original_program_index = i + 1;
 
 			// try to join by name only
 			pid_t pid;
 			if (!read_pid(argv[i] + 16, &pid)) {
-				if (!cfg.shell && !arg_shell_none)
-					cfg.shell = guess_shell();
-
 				join(pid, argc, argv, i + 1);
 				exit(0);
 			}
@@ -820,8 +932,9 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 				exit(1);
 			}
 
-			if (!cfg.shell && !arg_shell_none)
-				cfg.shell = guess_shell();
+			if (argc <= (i+1))
+				just_run_the_shell = 1;
+			cfg.original_program_index = i + 1;
 
 			// join sandbox by pid or by name
 			pid_t pid = require_pid(argv[i] + 15);
@@ -840,8 +953,9 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 			exit(1);
 		}
 
-		if (!cfg.shell && !arg_shell_none)
-			cfg.shell = guess_shell();
+		if (argc <= (i+1))
+			just_run_the_shell = 1;
+		cfg.original_program_index = i + 1;
 
 		// join sandbox by pid or by name
 		pid_t pid = require_pid(argv[i] + 18);
@@ -857,38 +971,6 @@ static void run_cmd_and_exit(int i, int argc, char **argv) {
 		exit(0);
 	}
 
-}
-
-char *guess_shell(void) {
-	const char *shell;
-	char *retval;
-	struct stat s;
-
-	shell = env_get("SHELL");
-	if (shell) {
-		invalid_filename(shell, 0); // no globbing
-		if (!is_dir(shell) && strstr(shell, "..") == NULL && stat(shell, &s) == 0 && access(shell, X_OK) == 0 &&
-		    strcmp(shell, PATH_FIREJAIL) != 0)
-			goto found;
-	}
-
-	// shells in order of preference
-	static const char * const shells[] = {"/bin/bash", "/bin/csh", "/usr/bin/zsh", "/bin/sh", "/bin/ash", NULL };
-
-	int i = 0;
-	while (shells[i] != NULL) {
-		// access call checks as real UID/GID, not as effective UID/GID
-		if (stat(shells[i], &s) == 0 && access(shells[i], X_OK) == 0) {
-			shell = shells[i];
-			break;
-		}
-		i++;
-	}
- found:
-	retval = strdup(shell);
-	if (!retval)
-		errExit("strdup");
-	return retval;
 }
 
 // return argument index
@@ -929,12 +1011,14 @@ static void run_builder(int argc, char **argv) {
 	if (setresuid(-1, getuid(), getuid()) != 0)
 		errExit("setresuid");
 
+	if (env_get("LD_PRELOAD") != NULL)
+		fprintf(stderr, "run_builder: LD_PRELOAD is: '%s'\n", env_get("LD_PRELOAD"));
 	assert(env_get("LD_PRELOAD") == NULL);
 	assert(getenv("LD_PRELOAD") == NULL);
 	umask(orig_umask);
 
-	// restore some environment variables
-	env_apply_whitelist_sbox();
+	// restore original environment variables
+	env_apply_all();
 
 	argv[0] = LIBDIR "/firejail/fbuilder";
 	execvp(argv[0], argv);
@@ -961,7 +1045,7 @@ void filter_add_blacklist_override(int fd, int syscall, int arg, void *ptrarg, b
 static int check_postexec(const char *list) {
 	char *prelist, *postlist;
 
-	if (list) {
+	if (list && list[0]) {
 		syscalls_in_list(list, "@default-keep", -1, &prelist, &postlist, true);
 		if (postlist)
 			return 1;
@@ -974,39 +1058,38 @@ static int check_postexec(const char *list) {
 //*******************************************
 int main(int argc, char **argv, char **envp) {
 	int i;
-	int prog_index = -1;			  // index in argv where the program command starts
-	int lockfd_network = -1;
-	int lockfd_directory = -1;
-	int option_cgroup = 0;
-	int custom_profile = 0;	// custom profile loaded
-	int arg_caps_cmdline = 0; 	// caps requested on command line (used to break out of --chroot)
+	int prog_index = -1;		// index in argv where the program command starts
+	int custom_profile = 0;		// custom profile loaded
+	int arg_caps_cmdline = 0;	// caps requested on command line (used to break out of --chroot)
 	char **ptr;
 
-#ifndef HAVE_SUID
-	if (geteuid() != 0) {
-		fprintf(stderr, "Error: Firejail needs to be SUID.\n");
-		fprintf(stderr, "Assuming firejail is installed in /usr/bin, execute the following command as root:\n");
-		fprintf(stderr, "  chmod u+s /usr/bin/firejail\n");
-	}
-#endif
 
 	// sanitize the umask
 	orig_umask = umask(022);
 
-	// check standard streams before printing anything
-	fix_std_streams();
-
 	// drop permissions by default and rise them when required
 	EUID_INIT();
 	EUID_USER();
+
+	// check standard streams before opening any file
+	fix_std_streams();
 
 	// argument count should be larger than 0
 	if (argc == 0 || !argv || strlen(argv[0]) == 0) {
 		fprintf(stderr, "Error: argv is invalid\n");
 		exit(1);
 	} else if (argc >= MAX_ARGS) {
-		fprintf(stderr, "Error: too many arguments\n");
+		fprintf(stderr, "Error: too many arguments: argc (%d) >= MAX_ARGS (%d)\n", argc, MAX_ARGS);
 		exit(1);
+	}
+
+	// sanity check for arguments
+	for (i = 0; i < argc; i++) {
+		if (strlen(argv[i]) >= MAX_ARG_LEN) {
+			fprintf(stderr, "Error: too long argument: argv[%d] len (%zu) >= MAX_ARG_LEN (%d): %s\n",
+			        i, strlen(argv[i]), MAX_ARG_LEN, argv[i]);
+			exit(1);
+		}
 	}
 
 	// Stash environment variables
@@ -1015,98 +1098,29 @@ int main(int argc, char **argv, char **envp) {
 
 	// sanity check for environment variables
 	if (i >= MAX_ENVS) {
-		fprintf(stderr, "Error: too many environment variables\n");
+		fprintf(stderr, "Error: too many environment variables: >= MAX_ENVS (%d)\n", MAX_ENVS);
 		exit(1);
-	}
-
-	// sanity check for arguments
-	for (i = 0; i < argc; i++) {
-		if (*argv[i] == 0) {
-			fprintf(stderr, "Error: too short arguments\n");
-			exit(1);
-		}
-		if (strlen(argv[i]) >= MAX_ARG_LEN) {
-			fprintf(stderr, "Error: too long arguments\n");
-			exit(1);
-		}
 	}
 
 	// Reapply a minimal set of environment variables
 	env_apply_whitelist();
 
-	// check if the user is allowed to use firejail
-	init_cfg(argc, argv);
-
-	// get starting timestamp, process --quiet
-	timetrace_start();
+	// process --quiet
 	const char *env_quiet = env_get("FIREJAIL_QUIET");
 	if (check_arg(argc, argv, "--quiet", 1) || (env_quiet && strcmp(env_quiet, "yes") == 0))
 		arg_quiet = 1;
 
-	// cleanup at exit
-	EUID_ROOT();
-	atexit(clear_atexit);
-
-	// build /run/firejail directory structure
-	preproc_build_firejail_dir();
-	const char *container_name = env_get("container");
-	if (!container_name || strcmp(container_name, "firejail")) {
-		lockfd_directory = open(RUN_DIRECTORY_LOCK_FILE, O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
-		if (lockfd_directory != -1) {
-			int rv = fchown(lockfd_directory, 0, 0);
-			(void) rv;
-			flock(lockfd_directory, LOCK_EX);
-		}
-		preproc_clean_run();
-		flock(lockfd_directory, LOCK_UN);
-		close(lockfd_directory);
-	}
-	EUID_USER();
-
-	// --ip=dhcp - we need access to /sbin and /usr/sbin directories in order to run ISC DHCP client (dhclient)
-	// these paths are disabled in disable-common.inc
-	if ((i = check_arg(argc, argv, "--ip", 0)) != 0) {
-		if (strncmp(argv[i] + 4, "=dhcp", 5) == 0) {
-			profile_add("noblacklist /sbin");
-			profile_add("noblacklist /usr/sbin");
-		}
+	// process --debug
+	if (check_arg(argc, argv, "--debug", 1)) {
+		arg_debug = 1;
+		arg_quiet = 0;
 	}
 
-	// for appimages we need to remove "include disable-shell.inc from the profile
-	// a --profile command can show up before --appimage
-	if (check_arg(argc, argv, "--appimage", 1))
-		arg_appimage = 1;
+	// check if the user is allowed to use firejail
+	init_cfg(argc, argv);
 
-	// process allow-debuggers
-	if (check_arg(argc, argv, "--allow-debuggers", 1)) {
-		// check kernel version
-		struct utsname u;
-		int rv = uname(&u);
-		if (rv != 0)
-			errExit("uname");
-		int major;
-		int minor;
-		if (2 != sscanf(u.release, "%d.%d", &major, &minor)) {
-			fprintf(stderr, "Error: cannot extract Linux kernel version: %s\n", u.version);
-			exit(1);
-		}
-		if (major < 4 || (major == 4 && minor < 8)) {
-			fprintf(stderr, "Error: --allow-debuggers is disabled on Linux kernels prior to 4.8. "
-				"A bug in ptrace call allows a full bypass of the seccomp filter. "
-				"Your current kernel version is %d.%d.\n", major, minor);
-			exit(1);
-		}
-
-		arg_allow_debuggers = 1;
-		char *cmd = strdup("noblacklist ${PATH}/strace");
-		if (!cmd)
-			errExit("strdup");
-		profile_add(cmd);
-	}
-
-	// profile builder
-	if (check_arg(argc, argv, "--build", 0)) // supports both --build and --build=filename
-		run_builder(argc, argv); // this function will not return
+	// get starting timestamp
+	timetrace_start();
 
 	// check argv[0] symlink wrapper if this is not a login shell
 	if (*argv[0] != '-')
@@ -1116,13 +1130,14 @@ int main(int argc, char **argv, char **envp) {
 	// If LXC is detected, start firejail sandbox
 	// otherwise try to detect a PID namespace by looking under /proc for specific kernel processes and:
 	//	- start the application in a /bin/bash shell
+#ifdef HAVE_SANDBOX_CHECK
 	if (check_namespace_virt() == 0) {
 		EUID_ROOT();
 		int rv = check_kernel_procs();
 		EUID_USER();
 		if (rv == 0) {
 			if (check_arg(argc, argv, "--version", 1)) {
-				printf("firejail version %s\n", VERSION);
+				print_version_full();
 				exit(0);
 			}
 
@@ -1131,15 +1146,50 @@ int main(int argc, char **argv, char **envp) {
 			__builtin_unreachable();
 		}
 	}
-	EUID_ASSERT();
+#else
+	fwarning("firejail was built with --disable-sandbox-check, this is only intended for development\n");
+#endif
 
+	// profile builder
+	if (check_arg(argc, argv, "--build", 0)) // supports both --build and --build=filename
+		run_builder(argc, argv); // this function will not return
 
-	// check firejail directories
+	// intrusion detection system
+#ifdef HAVE_IDS
+	if (check_arg(argc, argv, "--ids-", 0)) // supports both --ids-init and --ids-check
+		run_ids(argc, argv); // this function will not return
+#else
+	if (check_arg(argc, argv, "--ids-", 0)) { // supports both --ids-init and --ids-check
+		fprintf(stderr, "Error: IDS features disabled in your Firejail build.\n"
+			"\tTo enable it, configure your build system using --enable-ids.\n"
+			"\tExample: ./configure --prefix=/usr --enable-ids\n\n");
+		exit(1);
+	}
+#endif
+
 	EUID_ROOT();
-	delete_run_files(sandbox_pid);
+#ifndef HAVE_SUID
+	if (geteuid() != 0) {
+		fprintf(stderr, "Error: Firejail needs to be SUID.\n");
+		fprintf(stderr, "Assuming firejail is installed in /usr/bin, execute the following command as root:\n");
+		fprintf(stderr, "  chmod u+s /usr/bin/firejail\n");
+	}
+#endif
+
+	// build /run/firejail directory structure
+	preproc_build_firejail_dir_unlocked();
+	preproc_lock_firejail_dir();
+	preproc_build_firejail_dir_locked();
+	const char *container_name = env_get("container");
+	if (!container_name || strcmp(container_name, "firejail"))
+		preproc_clean_run();
+	preproc_unlock_firejail_dir();
+
+	delete_run_files(getpid());
+	atexit(clear_atexit);
 	EUID_USER();
 
-	//check if the parent is sshd daemon
+	// check if the parent is sshd daemon
 	int parent_sshd = 0;
 	{
 		pid_t ppid = getppid();
@@ -1196,7 +1246,8 @@ int main(int argc, char **argv, char **envp) {
 	}
 	EUID_ASSERT();
 
-	// is this a login shell, or a command passed by sshd, insert command line options from /etc/firejail/login.users
+	// is this a login shell, or a command passed by sshd,
+	// insert command line options from /etc/firejail/login.users
 	if (*argv[0] == '-' || parent_sshd) {
 		if (argc == 1)
 			login_shell = 1;
@@ -1248,25 +1299,75 @@ int main(int argc, char **argv, char **envp) {
 #endif
 	EUID_ASSERT();
 
-	// check for force-nonewprivs in /etc/firejail/firejail.config file
+	// --ip=dhcp - we need access to /sbin and /usr/sbin directories in order to run ISC DHCP client (dhclient)
+	// these paths are disabled in disable-common.inc
+	if ((i = check_arg(argc, argv, "--ip", 0)) != 0) {
+		if (strncmp(argv[i] + 4, "=dhcp", 5) == 0) {
+			profile_add("noblacklist /sbin");
+			profile_add("noblacklist /usr/sbin");
+		}
+	}
+
+	// process allow-debuggers
+	if (check_arg(argc, argv, "--allow-debuggers", 1)) {
+		// check kernel version
+		struct utsname u;
+		int rv = uname(&u);
+		if (rv != 0)
+			errExit("uname");
+		int major;
+		int minor;
+		if (2 != sscanf(u.release, "%d.%d", &major, &minor)) {
+			fprintf(stderr, "Error: cannot extract Linux kernel version: %s\n", u.version);
+			exit(1);
+		}
+		if (major < 4 || (major == 4 && minor < 8)) {
+			fprintf(stderr, "Error: --allow-debuggers is disabled on Linux kernels prior to 4.8. "
+				"A bug in ptrace call allows a full bypass of the seccomp filter. "
+				"Your current kernel version is %d.%d.\n", major, minor);
+			exit(1);
+		}
+
+		arg_allow_debuggers = 1;
+		char *cmd = strdup("noblacklist ${PATH}/strace");
+		if (!cmd)
+			errExit("strdup");
+		profile_add(cmd);
+	}
+
+	// for appimages we need to remove "include disable-shell.inc from the profile
+	// a --profile command can show up before --appimage
+	if (check_arg(argc, argv, "--appimage", 1))
+		arg_appimage = 1;
+
+	// load configuration file /etc/firejail/firejail.config
+	// and check for force-nonewprivs
 	if (checkcfg(CFG_FORCE_NONEWPRIVS))
 		arg_nonewprivs = 1;
+
+	// check oom
+	if ((i = check_arg(argc, argv, "--oom=", 0)) != 0)
+		oom_set(argv[i] + 6);
 
 	// parse arguments
 	for (i = 1; i < argc; i++) {
 		run_cmd_and_exit(i, argc, argv); // will exit if the command is recognized
 
-		if (strcmp(argv[i], "--debug") == 0 && !arg_quiet)
+		if (strcmp(argv[i], "--debug") == 0) {
 			arg_debug = 1;
+			arg_quiet = 0;
+		}
 		else if (strcmp(argv[i], "--debug-blacklists") == 0)
 			arg_debug_blacklists = 1;
 		else if (strcmp(argv[i], "--debug-whitelists") == 0)
 			arg_debug_whitelists = 1;
+#ifdef HAVE_PRIVATE_LIB
 		else if (strcmp(argv[i], "--debug-private-lib") == 0)
 			arg_debug_private_lib = 1;
+#endif
 		else if (strcmp(argv[i], "--quiet") == 0) {
-			arg_quiet = 1;
-			arg_debug = 0;
+			if (!arg_debug)
+				arg_quiet = 1;
 		}
 		else if (strcmp(argv[i], "--allow-debuggers") == 0) {
 			// already handled
@@ -1289,8 +1390,18 @@ int main(int argc, char **argv, char **envp) {
 		// filtering
 		//*************************************
 #ifdef HAVE_APPARMOR
-		else if (strcmp(argv[i], "--apparmor") == 0)
+		else if (strcmp(argv[i], "--apparmor") == 0) {
 			arg_apparmor = 1;
+			apparmor_profile = "firejail-default";
+		}
+		else if (strncmp(argv[i], "--apparmor=", 11) == 0) {
+			arg_apparmor = 1;
+			apparmor_profile = argv[i] + 11;
+		}
+		else if (strncmp(argv[i], "--apparmor-replace", 18) == 0) {
+			arg_apparmor = 1;
+			apparmor_replace = true;
+		}
 #endif
 		else if (strncmp(argv[i], "--protocol=", 11) == 0) {
 			if (checkcfg(CFG_SECCOMP)) {
@@ -1396,9 +1507,39 @@ int main(int argc, char **argv, char **envp) {
 			else
 				exit_err_feature("seccomp");
 		}
+#ifdef HAVE_LANDLOCK
+		else if (strncmp(argv[i], "--landlock.enforce", 18) == 0)
+			arg_landlock_enforce = 1;
+		else if (strncmp(argv[i], "--landlock.fs.read=", 19) == 0)
+			ll_add_profile(LL_FS_READ, argv[i] + 19);
+		else if (strncmp(argv[i], "--landlock.fs.write=", 20) == 0)
+			ll_add_profile(LL_FS_WRITE, argv[i] + 20);
+		else if (strncmp(argv[i], "--landlock.fs.makeipc=", 22) == 0)
+			ll_add_profile(LL_FS_MAKEIPC, argv[i] + 22);
+		else if (strncmp(argv[i], "--landlock.fs.makedev=", 22) == 0)
+			ll_add_profile(LL_FS_MAKEDEV, argv[i] + 22);
+		else if (strncmp(argv[i], "--landlock.fs.execute=", 22) == 0)
+			ll_add_profile(LL_FS_EXEC, argv[i] + 22);
+#endif
 		else if (strcmp(argv[i], "--memory-deny-write-execute") == 0) {
 			if (checkcfg(CFG_SECCOMP))
 				arg_memory_deny_write_execute = 1;
+			else
+				exit_err_feature("seccomp");
+		}
+		else if (strcmp(argv[i], "--restrict-namespaces") == 0) {
+			if (checkcfg(CFG_SECCOMP)) {
+				arg_restrict_namespaces = 1;
+				profile_list_augment(&cfg.restrict_namespaces, "cgroup,ipc,net,mnt,pid,time,user,uts");
+			}
+			else
+				exit_err_feature("seccomp");
+		}
+		else if (strncmp(argv[i], "--restrict-namespaces=", 22) == 0) {
+			if (checkcfg(CFG_SECCOMP)) {
+				const char *add = argv[i] + 22;
+				profile_list_augment(&cfg.restrict_namespaces, add);
+			}
 			else
 				exit_err_feature("seccomp");
 		}
@@ -1452,26 +1593,23 @@ int main(int argc, char **argv, char **envp) {
 			arg_trace = 1;
 		else if (strncmp(argv[i], "--trace=", 8) == 0) {
 			arg_trace = 1;
-			arg_tracefile = argv[i] + 8;
+			arg_tracefile = expand_macros(argv[i] + 8);
 			if (*arg_tracefile == '\0') {
 				fprintf(stderr, "Error: invalid trace option\n");
 				exit(1);
 			}
 			invalid_filename(arg_tracefile, 0); // no globbing
-			if (strstr(arg_tracefile, "..")) {
+			if (strstr(arg_tracefile, "..") || has_cntrl_chars(arg_tracefile)) {
 				fprintf(stderr, "Error: invalid file name %s\n", arg_tracefile);
 				exit(1);
 			}
-			// if the filename starts with ~, expand the home directory
-			if (*arg_tracefile == '~') {
-				char *tmp;
-				if (asprintf(&tmp, "%s%s", cfg.homedir, arg_tracefile + 1) == -1)
-					errExit("asprintf");
-				arg_tracefile = tmp;
-			}
 		}
-		else if (strcmp(argv[i], "--tracelog") == 0)
-			arg_tracelog = 1;
+		else if (strcmp(argv[i], "--tracelog") == 0) {
+			if (checkcfg(CFG_TRACELOG))
+				arg_tracelog = 1;
+			else
+				exit_err_feature("tracelog");
+		}
 		else if (strncmp(argv[i], "--rlimit-cpu=", 13) == 0) {
 			check_unsigned(argv[i] + 13, "Error: invalid rlimit");
 			sscanf(argv[i] + 13, "%llu", &cfg.rlimit_cpu);
@@ -1488,8 +1626,11 @@ int main(int argc, char **argv, char **envp) {
 			arg_rlimit_nproc = 1;
 		}
 		else if (strncmp(argv[i], "--rlimit-fsize=", 15) == 0) {
-			check_unsigned(argv[i] + 15, "Error: invalid rlimit");
-			sscanf(argv[i] + 15, "%llu", &cfg.rlimit_fsize);
+			cfg.rlimit_fsize = parse_arg_size(argv[i] + 15);
+			if (cfg.rlimit_fsize == 0) {
+				perror("Error: invalid rlimit-fsize. Only use positive numbers and k, m or g suffix.");
+				exit(1);
+			}
 			arg_rlimit_fsize = 1;
 		}
 		else if (strncmp(argv[i], "--rlimit-sigpending=", 20) == 0) {
@@ -1498,8 +1639,11 @@ int main(int argc, char **argv, char **envp) {
 			arg_rlimit_sigpending = 1;
 		}
 		else if (strncmp(argv[i], "--rlimit-as=", 12) == 0) {
-			check_unsigned(argv[i] + 12, "Error: invalid rlimit");
-			sscanf(argv[i] + 12, "%llu", &cfg.rlimit_as);
+			cfg.rlimit_as = parse_arg_size(argv[i] + 12);
+			if (cfg.rlimit_as == 0) {
+				perror("Error: invalid rlimit-as. Only use positive numbers and k, m or g suffix.");
+				exit(1);
+			}
 			arg_rlimit_as = 1;
 		}
 		else if (strncmp(argv[i], "--ipc-namespace", 15) == 0)
@@ -1511,22 +1655,6 @@ int main(int argc, char **argv, char **envp) {
 			if (getuid() != 0 &&cfg.nice < 0)
 				cfg.nice = 0;
 			arg_nice = 1;
-		}
-		else if (strncmp(argv[i], "--cgroup=", 9) == 0) {
-			if (checkcfg(CFG_CGROUP)) {
-				if (option_cgroup) {
-					fprintf(stderr, "Error: only a cgroup can be defined\n");
-					exit(1);
-				}
-
-				option_cgroup = 1;
-				cfg.cgroup = strdup(argv[i] + 9);
-				if (!cfg.cgroup)
-					errExit("strdup");
-				set_cgroup(cfg.cgroup);
-			}
-			else
-				exit_err_feature("cgroup");
 		}
 
 		//*************************************
@@ -1554,6 +1682,7 @@ int main(int argc, char **argv, char **envp) {
 			profile_check_line(line, 0, NULL);	// will exit if something wrong
 			profile_add(line);
 		}
+
 		else if (strncmp(argv[i], "--blacklist=", 12) == 0) {
 			char *line;
 			if (asprintf(&line, "blacklist %s", argv[i] + 12) == -1)
@@ -1570,19 +1699,13 @@ int main(int argc, char **argv, char **envp) {
 			profile_check_line(line, 0, NULL);	// will exit if something wrong
 			profile_add(line);
 		}
-
-#ifdef HAVE_WHITELIST
 		else if (strncmp(argv[i], "--whitelist=", 12) == 0) {
-			if (checkcfg(CFG_WHITELIST)) {
-				char *line;
-				if (asprintf(&line, "whitelist %s", argv[i] + 12) == -1)
-					errExit("asprintf");
+			char *line;
+			if (asprintf(&line, "whitelist %s", argv[i] + 12) == -1)
+				errExit("asprintf");
 
-				profile_check_line(line, 0, NULL);	// will exit if something wrong
-				profile_add(line);
-			}
-			else
-				exit_err_feature("whitelist");
+			profile_check_line(line, 0, NULL);	// will exit if something wrong
+			profile_add(line);
 		}
 		else if (strncmp(argv[i], "--nowhitelist=", 14) == 0) {
 			char *line;
@@ -1592,7 +1715,7 @@ int main(int argc, char **argv, char **envp) {
 			profile_check_line(line, 0, NULL);	// will exit if something wrong
 			profile_add(line);
 		}
-#endif
+
 		else if (strncmp(argv[i], "--mkdir=", 8) == 0) {
 			char *line;
 			if (asprintf(&line, "mkdir %s", argv[i] + 8) == -1)
@@ -1651,11 +1774,6 @@ int main(int argc, char **argv, char **envp) {
 					fprintf(stderr, "Error: --overlay and --chroot options are mutually exclusive\n");
 					exit(1);
 				}
-				struct stat s;
-				if (stat("/proc/sys/kernel/grsecurity", &s) == 0) {
-					fprintf(stderr, "Error: --overlay option is not available on Grsecurity systems\n");
-					exit(1);
-				}
 				arg_overlay = 1;
 				arg_overlay_keep = 1;
 
@@ -1677,11 +1795,6 @@ int main(int argc, char **argv, char **envp) {
 				}
 				if (cfg.chrootdir) {
 					fprintf(stderr, "Error: --overlay and --chroot options are mutually exclusive\n");
-					exit(1);
-				}
-				struct stat s;
-				if (stat("/proc/sys/kernel/grsecurity", &s) == 0) {
-					fprintf(stderr, "Error: --overlay option is not available on Grsecurity systems\n");
 					exit(1);
 				}
 				arg_overlay = 1;
@@ -1715,42 +1828,10 @@ int main(int argc, char **argv, char **envp) {
 					fprintf(stderr, "Error: --overlay and --chroot options are mutually exclusive\n");
 					exit(1);
 				}
-				struct stat s;
-				if (stat("/proc/sys/kernel/grsecurity", &s) == 0) {
-					fprintf(stderr, "Error: --overlay option is not available on Grsecurity systems\n");
-					exit(1);
-				}
 				arg_overlay = 1;
 			}
 			else
 				exit_err_feature("overlayfs");
-		}
-#endif
-#ifdef HAVE_FIRETUNNEL
-		else if (strcmp(argv[i], "--tunnel") == 0) {
-			// try to connect to the default client side of the tunnel
-			// if this fails, try the default server side of the tunnel
-			if (access("/run/firetunnel/ftc", R_OK) == 0)
-				profile_read("/run/firetunnel/ftc");
-			else if (access("/run/firetunnel/fts", R_OK) == 0)
-				profile_read("/run/firetunnel/fts");
-			else {
-				fprintf(stderr, "Error: no default firetunnel found, please specify it using --tunnel=devname option\n");
-				exit(1);
-			}
-		}
-		else if (strncmp(argv[i], "--tunnel=", 9) == 0) {
-			char *fname;
-
-			if (asprintf(&fname, "/run/firetunnel/%s", argv[i] + 9) == -1)
-				errExit("asprintf");
-			invalid_filename(fname, 0); // no globbing
-			if (access(fname, R_OK) == 0)
-				profile_read(fname);
-			else {
-				fprintf(stderr, "Error: tunnel not found\n");
-				exit(1);
-			}
 		}
 #endif
 		else if (strncmp(argv[i], "--include=", 10) == 0) {
@@ -1842,6 +1923,14 @@ int main(int argc, char **argv, char **envp) {
 			}
 			profile_add_ignore(argv[i] + 9);
 		}
+		else if (strncmp(argv[i], "--keep-fd=", 10) == 0) {
+			if (strcmp(argv[i] + 10, "all") == 0)
+				arg_keep_fd_all = 1;
+			else {
+				const char *add = argv[i] + 10;
+				profile_list_augment(&cfg.keep_fd, add);
+			}
+		}
 #ifdef HAVE_CHROOT
 		else if (strncmp(argv[i], "--chroot=", 9) == 0) {
 			if (checkcfg(CFG_CHROOT)) {
@@ -1850,26 +1939,14 @@ int main(int argc, char **argv, char **envp) {
 					exit(1);
 				}
 
-				struct stat s;
-				if (stat("/proc/sys/kernel/grsecurity", &s) == 0) {
-					fprintf(stderr, "Error: --chroot option is not available on Grsecurity systems\n");
-					exit(1);
-				}
 				// extract chroot dirname
-				cfg.chrootdir = argv[i] + 9;
+				cfg.chrootdir = expand_macros(argv[i] + 9);
 				if (*cfg.chrootdir == '\0') {
 					fprintf(stderr, "Error: invalid chroot option\n");
 					exit(1);
 				}
 				invalid_filename(cfg.chrootdir, 0); // no globbing
 
-				// if the directory starts with ~, expand the home directory
-				if (*cfg.chrootdir == '~') {
-					char *tmp;
-					if (asprintf(&tmp, "%s%s", cfg.homedir, cfg.chrootdir + 1) == -1)
-						errExit("asprintf");
-					cfg.chrootdir = tmp;
-				}
 				// check chroot directory
 				fs_check_chroot_dir();
 			}
@@ -1887,11 +1964,14 @@ int main(int argc, char **argv, char **envp) {
 		else if (strcmp(argv[i], "--keep-config-pulse") == 0) {
 			arg_keep_config_pulse = 1;
 		}
+		else if (strcmp(argv[i], "--keep-shell-rc") == 0) {
+			arg_keep_shell_rc = 1;
+		}
 		else if (strcmp(argv[i], "--writable-var") == 0) {
 			arg_writable_var = 1;
 		}
 		else if (strcmp(argv[i], "--keep-var-tmp") == 0) {
-		        arg_keep_var_tmp = 1;
+			arg_keep_var_tmp = 1;
 		}
 		else if (strcmp(argv[i], "--writable-run-user") == 0) {
 			arg_writable_run_user = 1;
@@ -1956,63 +2036,91 @@ int main(int argc, char **argv, char **envp) {
 		else if (strcmp(argv[i], "--keep-dev-shm") == 0) {
 			arg_keep_dev_shm = 1;
 		}
+		else if (strcmp(argv[i], "--private-etc") == 0) {
+			if (checkcfg(CFG_PRIVATE_ETC)) {
+				if (arg_writable_etc) {
+					fprintf(stderr, "Error: --private-etc and --writable-etc are mutually exclusive\n");
+					exit(1);
+				}
+				arg_private_etc = 1;
+			}
+			else
+				exit_err_feature("private-etc");
+		}
 		else if (strncmp(argv[i], "--private-etc=", 14) == 0) {
-			if (arg_writable_etc) {
-				fprintf(stderr, "Error: --private-etc and --writable-etc are mutually exclusive\n");
-				exit(1);
-			}
+			if (checkcfg(CFG_PRIVATE_ETC)) {
+				if (arg_writable_etc) {
+					fprintf(stderr, "Error: --private-etc and --writable-etc are mutually exclusive\n");
+					exit(1);
+				}
 
-			// extract private etc list
-			if (*(argv[i] + 14) == '\0') {
-				fprintf(stderr, "Error: invalid private-etc option\n");
-				exit(1);
+				// extract private etc list
+				if (*(argv[i] + 14) == '\0') {
+					fprintf(stderr, "Error: invalid private-etc option\n");
+					exit(1);
+				}
+				if (cfg.etc_private_keep) {
+					if ( asprintf(&cfg.etc_private_keep, "%s,%s", cfg.etc_private_keep, argv[i] + 14) < 0 )
+						errExit("asprintf");
+				} else
+					cfg.etc_private_keep = argv[i] + 14;
+				arg_private_etc = 1;
 			}
-			if (cfg.etc_private_keep) {
-				if ( asprintf(&cfg.etc_private_keep, "%s,%s", cfg.etc_private_keep, argv[i] + 14) < 0 )
-					errExit("asprintf");
-			} else
-				cfg.etc_private_keep = argv[i] + 14;
-			arg_private_etc = 1;
+			else
+				exit_err_feature("private-etc");
 		}
 		else if (strncmp(argv[i], "--private-opt=", 14) == 0) {
-			// extract private opt list
-			if (*(argv[i] + 14) == '\0') {
-				fprintf(stderr, "Error: invalid private-opt option\n");
-				exit(1);
+			if (checkcfg(CFG_PRIVATE_OPT)) {
+				// extract private opt list
+				if (*(argv[i] + 14) == '\0') {
+					fprintf(stderr, "Error: invalid private-opt option\n");
+					exit(1);
+				}
+				if (cfg.opt_private_keep) {
+					if ( asprintf(&cfg.opt_private_keep, "%s,%s", cfg.opt_private_keep, argv[i] + 14) < 0 )
+						errExit("asprintf");
+				} else
+					cfg.opt_private_keep = argv[i] + 14;
+				arg_private_opt = 1;
 			}
-			if (cfg.opt_private_keep) {
-				if ( asprintf(&cfg.opt_private_keep, "%s,%s", cfg.opt_private_keep, argv[i] + 14) < 0 )
-					errExit("asprintf");
-			} else
-				cfg.opt_private_keep = argv[i] + 14;
-			arg_private_opt = 1;
+			else
+				exit_err_feature("private-opt");
 		}
 		else if (strncmp(argv[i], "--private-srv=", 14) == 0) {
-			// extract private srv list
-			if (*(argv[i] + 14) == '\0') {
-				fprintf(stderr, "Error: invalid private-srv option\n");
-				exit(1);
+			if (checkcfg(CFG_PRIVATE_SRV)) {
+				// extract private srv list
+				if (*(argv[i] + 14) == '\0') {
+					fprintf(stderr, "Error: invalid private-srv option\n");
+					exit(1);
+				}
+				if (cfg.srv_private_keep) {
+					if ( asprintf(&cfg.srv_private_keep, "%s,%s", cfg.srv_private_keep, argv[i] + 14) < 0 )
+						errExit("asprintf");
+				} else
+					cfg.srv_private_keep = argv[i] + 14;
+				arg_private_srv = 1;
 			}
-			if (cfg.srv_private_keep) {
-				if ( asprintf(&cfg.srv_private_keep, "%s,%s", cfg.srv_private_keep, argv[i] + 14) < 0 )
-					errExit("asprintf");
-			} else
-				cfg.srv_private_keep = argv[i] + 14;
-			arg_private_srv = 1;
+			else
+				exit_err_feature("private-srv");
 		}
 		else if (strncmp(argv[i], "--private-bin=", 14) == 0) {
-			// extract private bin list
-			if (*(argv[i] + 14) == '\0') {
-				fprintf(stderr, "Error: invalid private-bin option\n");
-				exit(1);
+			if (checkcfg(CFG_PRIVATE_BIN)) {
+				// extract private bin list
+				if (*(argv[i] + 14) == '\0') {
+					fprintf(stderr, "Error: invalid private-bin option\n");
+					exit(1);
+				}
+				if (cfg.bin_private_keep) {
+					if ( asprintf(&cfg.bin_private_keep, "%s,%s", cfg.bin_private_keep, argv[i] + 14) < 0 )
+						errExit("asprintf");
+				} else
+					cfg.bin_private_keep = argv[i] + 14;
+				arg_private_bin = 1;
 			}
-			if (cfg.bin_private_keep) {
-				if ( asprintf(&cfg.bin_private_keep, "%s,%s", cfg.bin_private_keep, argv[i] + 14) < 0 )
-					errExit("asprintf");
-			} else
-				cfg.bin_private_keep = argv[i] + 14;
-			arg_private_bin = 1;
+			else
+				exit_err_feature("private-bin");
 		}
+#ifdef HAVE_PRIVATE_LIB
 		else if (strncmp(argv[i], "--private-lib", 13) == 0) {
 			if (checkcfg(CFG_PRIVATE_LIB)) {
 				// extract private lib list (if any)
@@ -2028,6 +2136,7 @@ int main(int argc, char **argv, char **envp) {
 			else
 				exit_err_feature("private-lib");
 		}
+#endif
 		else if (strcmp(argv[i], "--private-tmp") == 0) {
 			arg_private_tmp = 1;
 		}
@@ -2059,14 +2168,22 @@ int main(int argc, char **argv, char **envp) {
 		else if (strncmp(argv[i], "--name=", 7) == 0) {
 			cfg.name = argv[i] + 7;
 			if (strlen(cfg.name) == 0) {
-				fprintf(stderr, "Error: please provide a name for sandbox\n");
+				fprintf(stderr, "Error: invalid sandbox name: cannot be empty\n");
+				return 1;
+			}
+			if (invalid_name(cfg.name)) {
+				fprintf(stderr, "Error: invalid sandbox name\n");
 				return 1;
 			}
 		}
 		else if (strncmp(argv[i], "--hostname=", 11) == 0) {
 			cfg.hostname = argv[i] + 11;
 			if (strlen(cfg.hostname) == 0) {
-				fprintf(stderr, "Error: please provide a hostname for sandbox\n");
+				fprintf(stderr, "Error: invalid hostname: cannot be empty\n");
+				return 1;
+			}
+			if (invalid_name(cfg.hostname)) {
+				fprintf(stderr, "Error: invalid hostname\n");
 				return 1;
 			}
 		}
@@ -2094,10 +2211,17 @@ int main(int argc, char **argv, char **envp) {
 			arg_novideo = 1;
 		else if (strcmp(argv[i], "--no3d") == 0)
 			arg_no3d = 1;
+		else if (strcmp(argv[i], "--noprinters") == 0) {
+			arg_noprinters = 1;
+			profile_add("blacklist /dev/lp*");
+			profile_add("blacklist /run/cups/cups.sock");
+		}
 		else if (strcmp(argv[i], "--notv") == 0)
 			arg_notv = 1;
 		else if (strcmp(argv[i], "--nodvd") == 0)
 			arg_nodvd = 1;
+		else if (strcmp(argv[i], "--notpm") == 0)
+			arg_notpm = 1;
 		else if (strcmp(argv[i], "--nou2f") == 0)
 			arg_nou2f = 1;
 		else if (strcmp(argv[i], "--noinput") == 0)
@@ -2266,6 +2390,21 @@ int main(int argc, char **argv, char **envp) {
 			continue;
 		}
 #ifdef HAVE_NETWORK
+		else if (strcmp(argv[i], "--netlock") == 0) {
+			if (checkcfg(CFG_NETWORK))
+				arg_netlock = 1;
+			else
+				exit_err_feature("networking");
+		}
+		else if (strncmp(argv[i], "--netlock=", 10) == 0) {
+			if (checkcfg(CFG_NETWORK)) {
+				pid_t pid = require_pid(argv[i] + 10);
+				netfilter_netlock(pid);
+			}
+			else
+				exit_err_feature("networking");
+			exit(0);
+		}
 		else if (strncmp(argv[i], "--interface=", 12) == 0) {
 			if (checkcfg(CFG_NETWORK)) {
 				// checks
@@ -2571,7 +2710,7 @@ int main(int argc, char **argv, char **envp) {
 			else if (cfg.dns4 == NULL)
 				cfg.dns4 = dns;
 			else {
-				fwarning("Warning: up to 4 DNS servers can be specified, %s ignored\n", dns);
+				fwarning("up to 4 DNS servers can be specified, %s ignored\n", dns);
 				free(dns);
 			}
 		}
@@ -2591,7 +2730,7 @@ int main(int argc, char **argv, char **envp) {
 		else if (strncmp(argv[i], "--netfilter=", 12) == 0) {
 			if (checkcfg(CFG_NETWORK)) {
 				arg_netfilter = 1;
-				arg_netfilter_file = argv[i] + 12;
+				arg_netfilter_file = expand_macros(argv[i] + 12);
 				check_netfilter_file(arg_netfilter_file);
 			}
 			else
@@ -2601,7 +2740,7 @@ int main(int argc, char **argv, char **envp) {
 		else if (strncmp(argv[i], "--netfilter6=", 13) == 0) {
 			if (checkcfg(CFG_NETWORK)) {
 				arg_netfilter6 = 1;
-				arg_netfilter6_file = argv[i] + 13;
+				arg_netfilter6_file = expand_macros(argv[i] + 13);
 				check_netfilter_file(arg_netfilter6_file);
 			}
 			else
@@ -2622,47 +2761,15 @@ int main(int argc, char **argv, char **envp) {
 		//*************************************
 		else if (strncmp(argv[i], "--timeout=", 10) == 0)
 			cfg.timeout = extract_timeout(argv[i] + 10);
-		else if (strcmp(argv[i], "--appimage") == 0)
-			arg_appimage = 1;
-		else if (strcmp(argv[i], "--shell=none") == 0) {
-			arg_shell_none = 1;
-			if (cfg.shell) {
-				fprintf(stderr, "Error: a shell was already specified\n");
-				return 1;
-			}
+		else if (strcmp(argv[i], "--appimage") == 0) {
+			// already handled
+		}
+		else if (strncmp(argv[i], "--oom=", 6) == 0) {
+			// already handled
 		}
 		else if (strncmp(argv[i], "--shell=", 8) == 0) {
-			if (arg_shell_none) {
-				fprintf(stderr, "Error: --shell=none was already specified.\n");
-				return 1;
-			}
-			invalid_filename(argv[i] + 8, 0); // no globbing
-
-			if (cfg.shell) {
-				fprintf(stderr, "Error: only one user shell can be specified\n");
-				return 1;
-			}
-			cfg.shell = argv[i] + 8;
-
-			if (is_dir(cfg.shell) || strstr(cfg.shell, "..")) {
-				fprintf(stderr, "Error: invalid shell\n");
-				exit(1);
-			}
-
-			// access call checks as real UID/GID, not as effective UID/GID
-			if(cfg.chrootdir) {
-				char *shellpath;
-				if (asprintf(&shellpath, "%s%s", cfg.chrootdir, cfg.shell) == -1)
-					errExit("asprintf");
-				if (access(shellpath, X_OK)) {
-					fprintf(stderr, "Error: cannot access shell file in chroot\n");
-					exit(1);
-				}
-				free(shellpath);
-			} else if (access(cfg.shell, X_OK)) {
-				fprintf(stderr, "Error: cannot access shell file\n");
-				exit(1);
-			}
+			fprintf(stderr, "Error: \"shell none\" is done by default now; the \"shell\" command has been removed\n");
+			exit(1);
 		}
 		else if (strcmp(argv[i], "-c") == 0) {
 			arg_command = 1;
@@ -2685,19 +2792,29 @@ int main(int argc, char **argv, char **envp) {
 		}
 #endif
 		else if (strncmp(argv[i], "--join-or-start=", 16) == 0) {
-			// NOTE: this is second part of option handler,
-			//		 atempt to find and join sandbox is done in other one
+			// Note: This is the second part of the option handler;
+			// the attempt to find and join the sandbox is done in
+			// the other one
 
 			// set sandbox name and start normally
 			cfg.name = argv[i] + 16;
 			if (strlen(cfg.name) == 0) {
-				fprintf(stderr, "Error: please provide a name for sandbox\n");
+				fprintf(stderr, "Error: invalid sandbox name: cannot be empty\n");
+				return 1;
+			}
+			if (invalid_name(cfg.name)) {
+				fprintf(stderr, "Error: invalid sandbox name\n");
 				return 1;
 			}
 		}
 		else if (strcmp(argv[i], "--deterministic-exit-code") == 0) {
 			arg_deterministic_exit_code = 1;
 		}
+		else if (strcmp(argv[i], "--deterministic-shutdown") == 0) {
+			arg_deterministic_shutdown = 1;
+		}
+		else if (strcmp(argv[i], "--tab") == 0)
+			arg_tab = 1;
 		else {
 			// double dash - positional params to follow
 			if (strcmp(argv[i], "--") == 0) {
@@ -2719,9 +2836,6 @@ int main(int argc, char **argv, char **envp) {
 				cfg.command_name = strdup(argv[i]);
 				if (!cfg.command_name)
 					errExit("strdup");
-
-				// disable shell=* for appimages
-				arg_shell_none = 0;
 			}
 			else
 				extract_command_name(i, argv);
@@ -2748,11 +2862,6 @@ int main(int argc, char **argv, char **envp) {
 		}
 	}
 
-	// prog_index could still be -1 if no program was specified
-	if (prog_index == -1 && arg_shell_none) {
-		fprintf(stderr, "Error: shell=none configured, but no program specified\n");
-		exit(1);
-	}
 
 	// check trace configuration
 	if (arg_trace && arg_tracelog) {
@@ -2771,6 +2880,17 @@ int main(int argc, char **argv, char **envp) {
 		}
 	}
 
+	// check writable_etc and DNS/DHCP
+	if (arg_writable_etc) {
+		if (cfg.dns1 != NULL || any_dhcp()) {
+			// we could end up overwriting the real /etc/resolv.conf, so we better exit now!
+			fprintf(stderr, "Error: --dns/--ip=dhcp and --writable-etc are mutually exclusive\n");
+			exit(1);
+		}
+	}
+
+
+
 	// enable seccomp if only seccomp.block-secondary was specified
 	if (arg_seccomp_block_secondary)
 		arg_seccomp = 1;
@@ -2785,31 +2905,28 @@ int main(int argc, char **argv, char **envp) {
 		free(msg);
 	}
 
-	// guess shell if unspecified
-	if (!arg_shell_none && !cfg.shell) {
-		cfg.shell = guess_shell();
-		if (!cfg.shell) {
-			fprintf(stderr, "Error: unable to guess your shell, please set explicitly by using --shell option.\n");
+	// build the sandbox command
+	if (prog_index == -1) {
+		just_run_the_shell = 1;
+
+		assert(cfg.command_line == NULL); // runs the user shell
+		if (arg_appimage) {
+			fprintf(stderr, "Error: no appimage archive specified\n");
 			exit(1);
 		}
-		if (arg_debug)
-			printf("Autoselecting %s as shell\n", cfg.shell);
-	}
 
-	// build the sandbox command
-	if (prog_index == -1 && cfg.shell) {
-		assert(cfg.command_line == NULL); // runs cfg.shell
-		cfg.window_title = cfg.shell;
-		cfg.command_name = cfg.shell;
+		cfg.window_title = cfg.usershell;
+		cfg.command_name = cfg.usershell;
 	}
 	else if (arg_appimage) {
 		if (arg_debug)
 			printf("Configuring appimage environment\n");
 		appimage_set(cfg.command_name);
-		build_appimage_cmdline(&cfg.command_line, &cfg.window_title, argc, argv, prog_index);
+		build_appimage_cmdline(&cfg.command_line, &cfg.window_title, argc, argv, prog_index, true);
 	}
 	else {
-		build_cmdline(&cfg.command_line, &cfg.window_title, argc, argv, prog_index);
+		// Only add extra quotes if we were not launched by sshd.
+		build_cmdline(&cfg.command_line, &cfg.window_title, argc, argv, prog_index, !parent_sshd);
 	}
 /*	else {
 		fprintf(stderr, "Error: command must be specified when --shell=none used.\n");
@@ -2823,7 +2940,10 @@ int main(int argc, char **argv, char **envp) {
 
 	// load the profile
 	if (!arg_noprofile && !custom_profile) {
-		custom_profile = profile_find_firejail(cfg.command_name, 1);
+		if (arg_appimage)
+			custom_profile = appimage_find_profile(cfg.command_name);
+		else
+			custom_profile = profile_find_firejail(cfg.command_name, 1);
 	}
 
 	// use default.profile as the default
@@ -2837,7 +2957,7 @@ int main(int argc, char **argv, char **envp) {
 		custom_profile = profile_find_firejail(profile_name, 1);
 
 		if (!custom_profile) {
-			fprintf(stderr, "Error: no default.profile installed\n");
+			fprintf(stderr, "Error: no %s installed\n", profile_name);
 			exit(1);
 		}
 
@@ -2846,12 +2966,26 @@ int main(int argc, char **argv, char **envp) {
 	}
 	EUID_ASSERT();
 
+	// Note: Only attempt to print non-debug information after all profiles
+	// have been loaded (because a profile may set arg_quiet)
+	if (!arg_quiet)
+		print_version(stderr);
+
 	// block X11 sockets
 	if (arg_x11_block)
 		x11_block();
 
 	// check network configuration options - it will exit if anything went wrong
 	net_check_cfg();
+
+	// customization of default seccomp filter
+	if (config_seccomp_filter_add) {
+		if (arg_seccomp && !cfg.seccomp_list_keep && !cfg.seccomp_list_drop)
+			profile_list_augment(&cfg.seccomp_list, config_seccomp_filter_add);
+
+		if (arg_seccomp32 && !cfg.seccomp_list_keep32 && !cfg.seccomp_list_drop32)
+			profile_list_augment(&cfg.seccomp_list32, config_seccomp_filter_add);
+	}
 
 	if (arg_seccomp)
 		arg_seccomp_postexec = check_postexec(cfg.seccomp_list) || check_postexec(cfg.seccomp_list_drop);
@@ -2863,12 +2997,7 @@ int main(int argc, char **argv, char **envp) {
 	// check and assign an IP address - for macvlan it will be done again in the sandbox!
 	if (any_bridge_configured()) {
 		EUID_ROOT();
-		lockfd_network = open(RUN_NETWORK_LOCK_FILE, O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
-		if (lockfd_network != -1) {
-			int rv = fchown(lockfd_network, 0, 0);
-			(void) rv;
-			flock(lockfd_network, LOCK_EX);
-		}
+		preproc_lock_firejail_network_dir();
 
 		if (cfg.bridge0.configured && cfg.bridge0.arg_ip_none == 0)
 			check_network(&cfg.bridge0);
@@ -2897,21 +3026,13 @@ int main(int argc, char **argv, char **envp) {
 
 	// set name and x11 run files
 	EUID_ROOT();
-	lockfd_directory = open(RUN_DIRECTORY_LOCK_FILE, O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
-	if (lockfd_directory != -1) {
-		int rv = fchown(lockfd_directory, 0, 0);
-		(void) rv;
-		flock(lockfd_directory, LOCK_EX);
-	}
+	preproc_lock_firejail_dir();
 	if (cfg.name)
 		set_name_run_file(sandbox_pid);
 	int display = x11_display();
 	if (display > 0)
 		set_x11_run_file(sandbox_pid, display);
-	if (lockfd_directory != -1) {
-		flock(lockfd_directory, LOCK_UN);
-		close(lockfd_directory);
-	}
+	preproc_unlock_firejail_dir();
 	EUID_USER();
 
 #ifdef HAVE_DBUSPROXY
@@ -2967,6 +3088,9 @@ int main(int argc, char **argv, char **envp) {
 		errExit("clone");
 	EUID_USER();
 
+	// sandbox pidfile
+	set_sandbox_run_file(getpid(), child);
+
 	if (!arg_command && !arg_quiet) {
 		fmessage("Parent pid %u, child pid %u\n", sandbox_pid, child);
 		// print the path of the new log directory
@@ -2988,9 +3112,9 @@ int main(int argc, char **argv, char **envp) {
 			network_main(child);
 			if (arg_debug)
 				printf("Host network configured\n");
-#ifdef HAVE_GCOV
+
 			__gcov_flush();
-#endif
+
 			_exit(0);
 		}
 
@@ -3000,99 +3124,180 @@ int main(int argc, char **argv, char **envp) {
 	}
 	EUID_ASSERT();
 
- 	// close each end of the unused pipes
- 	close(parent_to_child_fds[0]);
- 	close(child_to_parent_fds[1]);
+	// close each end of the unused pipes
+	close(parent_to_child_fds[0]);
+	close(child_to_parent_fds[1]);
 
 	// notify child that base setup is complete
- 	notify_other(parent_to_child_fds[1]);
+	notify_other(parent_to_child_fds[1]);
 
- 	// wait for child to create new user namespace with CLONE_NEWUSER
- 	wait_for_other(child_to_parent_fds[0]);
- 	close(child_to_parent_fds[0]);
+	// wait for child to create new user namespace with CLONE_NEWUSER
+	wait_for_other(child_to_parent_fds[0]);
+	close(child_to_parent_fds[0]);
 
- 	if (arg_noroot) {
-	 	// update the UID and GID maps in the new child user namespace
+	if (arg_noroot) {
+		// update the UID and GID maps in the new child user namespace
 		// uid
-	 	char *map_path;
-	 	if (asprintf(&map_path, "/proc/%d/uid_map", child) == -1)
-	 		errExit("asprintf");
+		char *map_path;
+		if (asprintf(&map_path, "/proc/%d/uid_map", child) == -1)
+			errExit("asprintf");
 
-	 	char *map;
-	 	uid_t uid = getuid();
-	 	if (asprintf(&map, "%d %d 1", uid, uid) == -1)
-	 		errExit("asprintf");
- 		EUID_ROOT();
-	 	update_map(map, map_path);
-	 	EUID_USER();
-	 	free(map);
-	 	free(map_path);
+		char *map;
+		uid_t uid = getuid();
+		if (asprintf(&map, "%d %d 1", uid, uid) == -1)
+			errExit("asprintf");
+		EUID_ROOT();
+		update_map(map, map_path);
+		EUID_USER();
+		free(map);
+		free(map_path);
 
-	 	// gid file
+		// gid file
 		if (asprintf(&map_path, "/proc/%d/gid_map", child) == -1)
 			errExit("asprintf");
-	 	char gidmap[1024];
-	 	char *ptr = gidmap;
-	 	*ptr = '\0';
+		char gidmap[1024];
+		char *ptr = gidmap;
+		*ptr = '\0';
 
-	 	// add user group
-	 	gid_t gid = getgid();
-	 	sprintf(ptr, "%d %d 1\n", gid, gid);
-	 	ptr += strlen(ptr);
+		// add user group
+		gid_t gid = getgid();
+		sprintf(ptr, "%d %d 1\n", gid, gid);
+		ptr += strlen(ptr);
 
-	 	if (!arg_nogroups) {
-		 	//  add firejail group
-		 	gid_t g = get_group_id("firejail");
-		 	if (g) {
-		 		sprintf(ptr, "%d %d 1\n", g, g);
-		 		ptr += strlen(ptr);
-		 	}
+		gid_t g;
+		if (!arg_nogroups || !check_can_drop_all_groups()) {
+			// add audio groups
+			if (!arg_nosound) {
+				g = get_group_id("audio");
+				if (g) {
+					sprintf(ptr, "%d %d 1\n", g, g);
+					ptr += strlen(ptr);
+				}
+				g = get_group_id("pipewire");
+				if (g) {
+					sprintf(ptr, "%d %d 1\n", g, g);
+					ptr += strlen(ptr);
+				}
+			}
 
-		 	//  add tty group
-		 	g = get_group_id("tty");
-		 	if (g) {
-		 		sprintf(ptr, "%d %d 1\n", g, g);
-		 		ptr += strlen(ptr);
-		 	}
+			// add video group
+			if (!arg_novideo) {
+				g = get_group_id("video");
+				if (g) {
+					sprintf(ptr, "%d %d 1\n", g, g);
+					ptr += strlen(ptr);
+				}
+			}
 
-		 	//  add audio group
-		 	g = get_group_id("audio");
-		 	if (g) {
-		 		sprintf(ptr, "%d %d 1\n", g, g);
-		 		ptr += strlen(ptr);
-		 	}
+			// add render/vglusers group
+			if (!arg_no3d) {
+				g = get_group_id("render");
+				if (g) {
+					sprintf(ptr, "%d %d 1\n", g, g);
+					ptr += strlen(ptr);
+				}
+				g = get_group_id("vglusers");
+				if (g) {
+					sprintf(ptr, "%d %d 1\n", g, g);
+					ptr += strlen(ptr);
+				}
+			}
 
-		 	//  add video group
-		 	g = get_group_id("video");
-		 	if (g) {
-		 		sprintf(ptr, "%d %d 1\n", g, g);
-		 		ptr += strlen(ptr);
-		 	}
+			// add lp group
+			if (!arg_noprinters) {
+				g = get_group_id("lp");
+				if (g) {
+					sprintf(ptr, "%d %d 1\n", g, g);
+					ptr += strlen(ptr);
+				}
+			}
 
-		 	//  add games group
-		 	g = get_group_id("games");
-		 	if (g) {
-		 		sprintf(ptr, "%d %d 1\n", g, g);
-		 	}
-		 }
+			// add cdrom/optical groups
+			if (!arg_nodvd) {
+				g = get_group_id("cdrom");
+				if (g) {
+					sprintf(ptr, "%d %d 1\n", g, g);
+					ptr += strlen(ptr);
+				}
+				g = get_group_id("optical");
+				if (g) {
+					sprintf(ptr, "%d %d 1\n", g, g);
+					ptr += strlen(ptr);
+				}
+			}
 
- 		EUID_ROOT();
-	 	update_map(gidmap, map_path);
-	 	EUID_USER();
-	 	free(map_path);
- 	}
+			// add input group
+			if (!arg_noinput) {
+				g = get_group_id("input");
+				if (g) {
+					sprintf(ptr, "%d %d 1\n", g, g);
+					ptr += strlen(ptr);
+				}
+			}
+		}
+
+		if (!arg_nogroups) {
+			// add firejail group
+			g = get_group_id("firejail");
+			if (g) {
+				sprintf(ptr, "%d %d 1\n", g, g);
+				ptr += strlen(ptr);
+			}
+
+			// add tty group
+			g = get_group_id("tty");
+			if (g) {
+				sprintf(ptr, "%d %d 1\n", g, g);
+				ptr += strlen(ptr);
+			}
+
+			// add games group
+			g = get_group_id("games");
+			if (g) {
+				sprintf(ptr, "%d %d 1\n", g, g);
+			}
+		}
+
+		EUID_ROOT();
+		update_map(gidmap, map_path);
+		EUID_USER();
+		free(map_path);
+	}
 	EUID_ASSERT();
 
- 	// notify child that UID/GID mapping is complete
- 	notify_other(parent_to_child_fds[1]);
- 	close(parent_to_child_fds[1]);
+	// notify child that UID/GID mapping is complete
+	notify_other(parent_to_child_fds[1]);
+	close(parent_to_child_fds[1]);
 
- 	EUID_ROOT();
-	if (lockfd_network != -1) {
-		flock(lockfd_network, LOCK_UN);
-		close(lockfd_network);
-	}
+	EUID_ROOT();
+	preproc_unlock_firejail_network_dir();
 	EUID_USER();
+
+	// lock netfilter firewall
+	if (arg_netlock) {
+		pid_t netlock_child = fork();
+		if (netlock_child < 0)
+			errExit("fork");
+		if (netlock_child == 0) {
+			close_all(NULL, 0);
+			// drop privileges
+			if (setresgid(-1, getgid(), getgid()) != 0)
+				errExit("setresgid");
+			if (setresuid(-1, getuid(), getuid()) != 0)
+				errExit("setresuid");
+
+			char arg[64];
+			snprintf(arg, sizeof(arg), "--netlock=%d", sandbox_pid);
+
+			char *cmd[3];
+			cmd[0] = BINDIR "/firejail";
+			cmd[1] = arg;
+			cmd[2] = NULL;
+			execvp(cmd[0], cmd);
+			perror("Cannot start netlock");
+			_exit(1);
+		}
+	}
 
 	int status = 0;
 	//*****************************
@@ -3111,35 +3316,16 @@ int main(int argc, char **argv, char **envp) {
 	// end of signal-safe code
 	//*****************************
 
-#if 0
-// at this point the sandbox was closed and we are on our way out
-// it would make sense to move this before waitpid above to free some memory
-// crash for now as of issue #3662 from dhcp code
-	// free globals
-	if (cfg.profile) {
-		ProfileEntry *prf = cfg.profile;
-		while (prf != NULL) {
-			ProfileEntry *next = prf->next;
-printf("data #%s#\n", prf->data);
-			if (prf->data)
-				free(prf->data);
-printf("link #%s#\n", prf->link);
-			if (prf->link)
-				free(prf->link);
-			free(prf);
-			prf = next;
-		}
-	}
-#endif
-
+	release_sandbox_lock();
 
 	if (WIFEXITED(status)){
 		myexit(WEXITSTATUS(status));
 	} else if (WIFSIGNALED(status)) {
-		myexit(WTERMSIG(status));
+		// distinguish fatal signals by adding 128
+		myexit(128 + WTERMSIG(status));
 	} else {
-		myexit(0);
+		myexit(1);
 	}
 
-	return 0;
+	return 1;
 }

@@ -8,9 +8,17 @@ include globals.local
 
 ignore include whitelist-runuser-common.inc
 
-# writable-run-user and dbus are needed by enigmail
+# TB stopped supporting enigmail in 2020 (v78) - let's harden D-Bus
+# https://support.mozilla.org/en-US/kb/openpgp-thunderbird-howto-and-faq
 ignore dbus-user none
-ignore dbus-system none
+dbus-user filter
+dbus-user.own org.mozilla.thunderbird.*
+dbus-user.talk ca.desrt.dconf
+dbus-user.talk org.freedesktop.Notifications
+# Allow D-Bus communication with Firefox for opening links
+dbus-user.talk org.mozilla.*
+# e2ee email needs writable-run-user
+# https://support.mozilla.org/en-US/kb/introduction-to-e2e-encryption
 writable-run-user
 
 # If you want to read local mail stored in /var/mail edit /etc/apparmor.d/firejail-default accordingly
@@ -24,14 +32,12 @@ writable-run-user
 # These lines are needed to allow Firefox to load your profile when clicking a link in an email
 noblacklist ${HOME}/.mozilla
 whitelist ${HOME}/.mozilla/firefox/profiles.ini
-read-only ${HOME}/.mozilla/firefox/profiles.ini
 
 noblacklist ${HOME}/.cache/thunderbird
 noblacklist ${HOME}/.gnupg
-# noblacklist ${HOME}/.icedove
+#noblacklist ${HOME}/.icedove
 noblacklist ${HOME}/.thunderbird
 
-include disable-passwdmgr.inc
 include disable-xdg.inc
 
 # If you have setup Thunderbird to archive emails to a local folder,
@@ -40,22 +46,22 @@ include disable-xdg.inc
 # See https://github.com/netblue30/firejail/issues/2357
 mkdir ${HOME}/.cache/thunderbird
 mkdir ${HOME}/.gnupg
-# mkdir ${HOME}/.icedove
+#mkdir ${HOME}/.icedove
 mkdir ${HOME}/.thunderbird
 whitelist ${HOME}/.cache/thunderbird
 whitelist ${HOME}/.gnupg
-# whitelist ${HOME}/.icedove
+#whitelist ${HOME}/.icedove
 whitelist ${HOME}/.thunderbird
 
 whitelist /usr/share/gnupg
-whitelist /usr/share/mozilla
+whitelist /usr/share/gnupg2
 whitelist /usr/share/thunderbird
-whitelist /usr/share/webext
-include whitelist-usr-share-common.inc
 
 # machine-id breaks audio in browsers; enable or put it in your thunderbird.local when sound is not required
 #machine-id
 novideo
+
+private-etc thunderbird
 
 # We need the real /tmp for data exchange when xdg-open handles email attachments on KDE
 ignore private-tmp

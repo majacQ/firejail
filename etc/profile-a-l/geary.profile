@@ -13,16 +13,25 @@ noblacklist ${HOME}/.config/evolution
 noblacklist ${HOME}/.config/geary
 noblacklist ${HOME}/.local/share/evolution
 noblacklist ${HOME}/.local/share/geary
-noblacklist ${HOME}/.mozilla
+noblacklist ${HOME}/.local/share/pki
+noblacklist ${HOME}/.pki
+
+# sh is needed to allow Firefox to open links
+include allow-bin-sh.inc
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
+
+# The lines below are needed to find the default Firefox profile name, to allow
+# opening links in an existing instance of Firefox (note that it still fails if
+# there isn't a Firefox instance running with the default profile; see #5352)
+noblacklist ${HOME}/.mozilla
+whitelist ${HOME}/.mozilla/firefox/profiles.ini
 
 mkdir ${HOME}/.cache/evolution
 mkdir ${HOME}/.cache/folks
@@ -39,7 +48,8 @@ whitelist ${HOME}/.config/evolution
 whitelist ${HOME}/.config/geary
 whitelist ${HOME}/.local/share/evolution
 whitelist ${HOME}/.local/share/geary
-whitelist ${HOME}/.mozilla/firefox/profiles.ini
+whitelist ${HOME}/.local/share/pki
+whitelist ${HOME}/.pki
 whitelist /usr/share/geary
 include whitelist-common.inc
 include whitelist-runuser-common.inc
@@ -48,7 +58,8 @@ include whitelist-var-common.inc
 
 apparmor
 caps.drop all
-machine-id
+#ipc-namespace # may cause issues with X11
+#machine-id
 netfilter
 no3d
 nodvd
@@ -56,32 +67,34 @@ nogroups
 noinput
 nonewprivs
 noroot
-nosound
+#nosound
 notv
 nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
-# disable-mnt
-# Add 'ignore private-bin' to geary.local for hyperlink support
-private-bin geary
+#disable-mnt
+#private-bin geary,sh
 private-cache
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,fonts,hostname,hosts,pki,resolv.conf,ssl,xdg
+private-etc @tls-ca,@x11,mailcap,mime.types
 private-tmp
 
 dbus-user filter
 dbus-user.own org.gnome.Geary
 dbus-user.talk ca.desrt.dconf
+dbus-user.talk org.freedesktop.Notifications
 dbus-user.talk org.freedesktop.secrets
 dbus-user.talk org.gnome.Contacts
 dbus-user.talk org.gnome.OnlineAccounts
 dbus-user.talk org.gnome.evolution.dataserver.AddressBook10
 dbus-user.talk org.gnome.evolution.dataserver.Sources5
+?ALLOW_TRAY: dbus-user.talk org.kde.StatusNotifierWatcher
+# Allow D-Bus communication with Firefox for opening links
+dbus-user.talk org.mozilla.*
 dbus-system none
 
-read-only ${HOME}/.mozilla/firefox/profiles.ini
+restrict-namespaces

@@ -7,20 +7,25 @@ include wget.local
 # Persistent global definitions
 include globals.local
 
+noblacklist ${HOME}/.config/wget
+noblacklist ${HOME}/.local/share/wget
 noblacklist ${HOME}/.netrc
 noblacklist ${HOME}/.wget-hsts
 noblacklist ${HOME}/.wgetrc
 
-blacklist /tmp/.X11-unix
+# If you use nvm, add the below lines to your wget.local
+#ignore read-only ${HOME}/.nvm
+#noblacklist ${HOME}/.nvm
+
 blacklist ${RUNUSER}
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
+include disable-x11.inc
 # Depending on workflow you can add the next line to your wget.local.
 #include disable-xdg.inc
 
@@ -45,17 +50,17 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 private-bin wget
 private-cache
 private-dev
 # Depending on workflow you can add the next line to your wget.local.
-#private-etc alternatives,ca-certificates,crypto-policies,pki,resolv.conf,ssl,wgetrc
+#private-etc alternatives,ca-certificates,crypto-policies,pki,resolv.conf,ssl,wget2rc,wgetrc
 #private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

@@ -8,7 +8,7 @@ include transmission-show.local
 include globals.local
 
 private-bin transmission-show
-private-etc alternatives,hosts,nsswitch.conf
+private-etc
 
 # Redirect
 include transmission-common.profile

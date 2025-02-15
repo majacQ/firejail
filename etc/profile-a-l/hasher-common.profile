@@ -17,7 +17,6 @@ blacklist ${RUNUSER}
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 # Add the next line to your hasher-common.local if you don't need to hash files in disable-programs.inc.
 #include disable-programs.inc
 include disable-shell.inc
@@ -43,13 +42,13 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 x11 none
 
 # Add the next line to your hasher-common.local if you don't need to hash files in ~/.cache.
 #private-cache
 private-dev
+private-etc
 # Add the next line to your hasher-common.local if you don't need to hash files in /tmp.
 #private-tmp
 
@@ -58,3 +57,4 @@ dbus-system none
 
 memory-deny-write-execute
 read-only ${HOME}
+restrict-namespaces

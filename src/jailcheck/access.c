@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -36,7 +36,7 @@ void access_setup(const char *directory) {
 	assert(user_home_dir);
 
 	if (files_cnt >= MAX_TEST_FILES) {
-		fprintf(stderr, "Error: maximum number of test directories exceded\n");
+		fprintf(stderr, "Error: maximum number of test directories exceeded\n");
 		exit(1);
 	}
 
@@ -80,10 +80,13 @@ void access_setup(const char *directory) {
 	FILE *fp = fopen(test_file, "w");
 	if (!fp) {
 		printf("Warning: I cannot create test file in directory %s, skipping...\n", directory);
+		free(test_file);
+		free(path);
 		return;
 	}
 	fprintf(fp, "this file was created by firetest utility, you can safely delete it\n");
 	fclose(fp);
+	free(path);
 	int rv = chown(test_file, user_uid, user_gid);
 	if (rv)
 		errExit("chown");

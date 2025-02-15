@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
 # This file is part of Firejail project
-# Copyright (C) 2014-2021 Firejail Authors
+# Copyright (C) 2014-2025 Firejail Authors
 # License GPL v2
 
 set timeout 10
@@ -14,28 +14,6 @@ expect {
 }
 expect {
 	timeout {puts "TESTING ERROR 1.3\n";exit}
-	"is an invalid filename"
-}
-after 100
-
-send -- "firejail --noprofile --cgroup=\"bla&&bla\"\r"
-expect {
-	timeout {puts "TESTING ERROR 2.2\n";exit}
-	"Error:"
-}
-expect {
-	timeout {puts "TESTING ERROR 2.3\n";exit}
-	"is an invalid filename"
-}
-after 100
-
-send -- "firejail --noprofile --chroot=\"bla&&bla\"\r"
-expect {
-	timeout {puts "TESTING ERROR 3.2\n";exit}
-	"Error:"
-}
-expect {
-	timeout {puts "TESTING ERROR 3.3\n";exit}
 	"is an invalid filename"
 }
 after 100
@@ -123,18 +101,6 @@ expect {
 	"is an invalid filename"
 }
 after 100
-
-send -- "firejail --shell=\"bla&&bla\"\r"
-expect {
-	timeout {puts "TESTING ERROR 12.2\n";exit}
-	"Error:"
-}
-expect {
-	timeout {puts "TESTING ERROR 12.3\n";exit}
-	"is an invalid filename"
-}
-after 100
-
 
 send -- "firejail --whitelist=\"bla&&bla\"\r"
 expect {

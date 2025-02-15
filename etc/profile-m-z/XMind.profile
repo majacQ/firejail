@@ -11,7 +11,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.xmind
@@ -30,10 +29,10 @@ notv
 nou2f
 protocol unix,inet,inet6
 seccomp
-shell none
 
 disable-mnt
-private-bin cp,sh,XMind
+private-bin XMind,cp,sh
 private-tmp
 private-dev
 
+restrict-namespaces

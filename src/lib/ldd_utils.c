@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#ifdef HAVE_PRIVATE_LIB
 // todo: resolve overlap with masked_lib_dirs[] array from fs_lib.c
 const char * const default_lib_paths[] = {
 	"/usr/lib/x86_64-linux-gnu",	// Debian & friends
@@ -47,10 +48,10 @@ int is_lib_64(const char *exe) {
 	if (fd < 0)
 		return 0;
 
-	unsigned char buf[EI_NIDENT];
+	unsigned char buf[EI_NIDENT] = {0};
 	ssize_t len = 0;
 	while (len < EI_NIDENT) {
-		ssize_t sz = read(fd, buf, EI_NIDENT);
+		ssize_t sz = read(fd, buf + len, EI_NIDENT - len);
 		if (sz <= 0)
 			goto doexit;
 		len += sz;
@@ -63,3 +64,4 @@ doexit:
 	close(fd);
 	return retval;
 }
+#endif

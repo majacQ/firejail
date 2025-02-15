@@ -17,7 +17,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -48,16 +47,16 @@ nou2f
 novideo
 protocol inet,inet6
 seccomp
-shell none
 
 disable-mnt
 private-bin gzip,lynx,newsboat,sh,w3m
 private-cache
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,lynx.cfg,lynx.lss,pki,resolv.conf,ssl,terminfo
+private-etc @tls-ca,lynx.cfg,lynx.lss,terminfo
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

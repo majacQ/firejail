@@ -13,7 +13,6 @@ include allow-java.inc
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -24,9 +23,10 @@ noroot
 notv
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-cache
 private-tmp
+
+restrict-namespaces

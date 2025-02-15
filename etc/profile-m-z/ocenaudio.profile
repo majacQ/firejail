@@ -6,51 +6,58 @@ include ocenaudio.local
 # Persistent global definitions
 include globals.local
 
+noblacklist ${HOME}/.cache/ocenaudio
 noblacklist ${HOME}/.local/share/ocenaudio
-noblacklist ${DOCUMENTS}
+
 noblacklist ${MUSIC}
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
+mkdir ${HOME}/.cache/ocenaudio
+mkdir ${HOME}/.local/share/ocenaudio
+whitelist ${HOME}/.cache/ocenaudio
+whitelist ${HOME}/.local/share/ocenaudio
+whitelist ${DOWNLOADS}
+whitelist ${MUSIC}
+whitelist /opt/ocenaudio
+include whitelist-common.inc
+include whitelist-run-common.inc
+include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
 
 apparmor
 caps.drop all
-ipc-namespace
-# net none - breaks update functionality and AppArmor on Ubuntu systems
-# Add 'net none' to your ocenaudio.local when you want that functionality.
-#net none
+#ipc-namespace
 netfilter
 no3d
 nodvd
 nogroups
 noinput
 nonewprivs
+noprinters
 noroot
 notv
 nou2f
 novideo
-protocol unix
+# Add `protocol unix\nignore protocol` to your ocenaudio.local to disable networking.
+protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
-private-bin ocenaudio
+private-bin ocenaudio,ocenvst
 private-cache
 private-dev
-private-etc alternatives,asound.conf,fonts,ld.so.cache,pulse
+private-etc @tls-ca,@x11,mime.types
 private-tmp
 
-# breaks preferences
-# dbus-user none
-# dbus-system none
+dbus-user none
+dbus-system none
 
-#memory-deny-write-execute - breaks on Arch (see issue #1803)
+restrict-namespaces

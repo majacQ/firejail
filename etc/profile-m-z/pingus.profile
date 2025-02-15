@@ -11,17 +11,20 @@ noblacklist ${HOME}/.pingus
 # Allow /bin/sh (blacklisted by disable-shell.inc)
 include allow-bin-sh.inc
 
+blacklist /usr/libexec
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.pingus
 whitelist ${HOME}/.pingus
+# Debian keeps games data under /usr/share/games
+whitelist /usr/share/games/pingus
 whitelist /usr/share/pingus
 include whitelist-common.inc
 include whitelist-runuser-common.inc
@@ -42,15 +45,16 @@ novideo
 protocol unix,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin pingus,pingus.bin,sh
 private-cache
 private-dev
-private-etc machine-id
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

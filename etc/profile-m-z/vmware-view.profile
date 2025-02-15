@@ -1,5 +1,5 @@
 # Firejail profile for vmware-view
-# Description: VMware Horizon Client
+# Description: VMware Horizon Client, used as a remote desktop client
 # This file is overwritten after every install/update
 # Persistent local customizations
 include vmware-view.local
@@ -7,6 +7,7 @@ include vmware-view.local
 include globals.local
 
 noblacklist ${HOME}/.vmware
+noblacklist /usr/lib/vmware
 
 noblacklist /sbin
 noblacklist /usr/sbin
@@ -17,7 +18,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -43,15 +43,16 @@ novideo
 protocol unix,inet,inet6
 seccomp !iopl
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,bumblebee,ca-certificates,crypto-policies,dconf,drirc,fonts,gai.conf,gconf,glvnd,group,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,login.defs,machine-id,magic,magic.mgc,mime.types,nsswitch.conf,nvidia,pango,passwd,pki,protocols,proxychains.conf,pulse,resolv.conf,rpc,services,ssl,terminfo,vmware,vmware-tools,vmware-vix,X11,xdg
+private-etc @tls-ca,@x11,bumblebee,gai.conf,gconf,glvnd,host.conf,magic,magic.mgc,mime.types,proxychains.conf,rpc,services,terminfo,vmware,vmware-tools,vmware-vix
 # Logs are kept in /tmp. Add 'ignore private-tmp' to your vmware-view.local if you need them without joining the sandbox.
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

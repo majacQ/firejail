@@ -1,338 +1,416 @@
 # Firejail
-[![Build Status](https://gitlab.com/Firejail/firejail_ci/badges/master/pipeline.svg)](https://gitlab.com/Firejail/firejail_ci/pipelines/)
-[![CodeQL](https://github.com/netblue30/firejail/workflows/CodeQL/badge.svg)](https://github.com/netblue30/firejail/actions?query=workflow%3ACodeQL)
-[![Build CI](https://github.com/netblue30/firejail/workflows/Build%20CI/badge.svg)](https://github.com/netblue30/firejail/actions?query=workflow%3A%22Build+CI%22)
-[![Packaging status](https://repology.org/badge/tiny-repos/firejail.svg)](https://repology.org/project/firejail/versions)
 
-Firejail is a SUID sandbox program that reduces the risk of security breaches by restricting
-the running environment of untrusted applications using Linux namespaces, seccomp-bpf
-and Linux capabilities. It allows a process and all its descendants to have their own private
-view of the globally shared kernel resources, such as the network stack, process table, mount table.
-Firejail can work in a SELinux or AppArmor environment, and it is integrated with Linux Control Groups.
+[![Build (GitLab)](https://gitlab.com/Firejail/firejail_ci/badges/master/pipeline.svg)](https://gitlab.com/Firejail/firejail_ci/pipelines)
+[![Build (GitHub)](https://github.com/netblue30/firejail/workflows/Build/badge.svg)](https://github.com/netblue30/firejail/actions?query=workflow%3ABuild)
+[![Build-extra](https://github.com/netblue30/firejail/workflows/Build-extra/badge.svg)](https://github.com/netblue30/firejail/actions?query=workflow%3ABuild-extra)
+[![Test](https://github.com/netblue30/firejail/workflows/Test/badge.svg)](https://github.com/netblue30/firejail/actions?query=workflow%3ATest)
+[![Check-C](https://github.com/netblue30/firejail/workflows/Check-C/badge.svg)](https://github.com/netblue30/firejail/actions?query=workflow%3ACheck-C)
+[![Check-Profiles](https://github.com/netblue30/firejail/workflows/Check-Profiles/badge.svg)](https://github.com/netblue30/firejail/actions?query=workflow%3ACheck-Profiles)
+[![Check-Python](https://github.com/netblue30/firejail/workflows/Check-Python/badge.svg)](https://github.com/netblue30/firejail/actions?query=workflow%3ACheck-Python)
+[![Codespell](https://github.com/netblue30/firejail/workflows/Codespell/badge.svg)](https://github.com/netblue30/firejail/actions?query=workflow%3ACodespell)
+[![Packaging status (Repology)](https://repology.org/badge/tiny-repos/firejail.svg)](https://repology.org/project/firejail/versions)
 
-Written in C with virtually no dependencies, the software runs on any Linux computer with a 3.x kernel
-version or newer. It can sandbox any type of processes: servers, graphical applications, and even
-user login sessions. The software includes sandbox profiles for a number of more common Linux programs,
+Firejail is a lightweight security tool intended to protect a Linux system by
+setting up a restricted environment for running (potentially untrusted)
+applications.
+
+More specifically, it is an SUID sandbox program that reduces the risk of
+security breaches by using Linux namespaces, seccomp-bpf and Linux
+capabilities.  It allows a process and all its descendants to have their own
+private view of the globally shared kernel resources, such as the network
+stack, process table and mount table.  Firejail can work in an SELinux or
+AppArmor environment, and it is integrated with Linux Control Groups.
+
+Written in C with virtually no dependencies, the software runs on any Linux
+computer with a 3.x kernel version or newer.  It can sandbox any type of
+processes: servers, graphical applications, and even user login sessions.  The
+software includes sandbox profiles for a number of more common Linux programs,
 such as Mozilla Firefox, Chromium, VLC, Transmission etc.
 
-The sandbox is lightweight, the overhead is low. There are no complicated configuration files to edit,
-no socket connections open, no daemons running in the background. All security features are
-implemented directly in Linux kernel and available on any Linux computer.
+The sandbox is lightweight, the overhead is low.  There are no complicated
+configuration files to edit, no socket connections open, no daemons running in
+the background.  All security features are implemented directly in Linux kernel
+and available on any Linux computer.
 
-<table><tr>
+## Videos
+
+<table>
+<tr>
 
 <td>
-<a href="http://www.youtube.com/watch?feature=player_embedded&v=8jfXL0ePV7U
-" target="_blank"><img src="http://img.youtube.com/vi/8jfXL0ePV7U/0.jpg"
-alt="Firejail Introduction" width="240" height="180" border="10" /><br/>Firejail Intro</a>
+<a href="https://odysee.com/@netblue30:9/install" target="_blank">
+<img src="https://thumbs.odycdn.com/f19bcfa08c2b35658dc18f4e2fd63f3f.webp"
+alt="Quick Start" width="240" height="142" border="10" />
+<br/>Quick Start
+</a>
 </td>
 
 <td>
-<a href="http://www.youtube.com/watch?feature=player_embedded&v=J1ZsXrpAgBU
-" target="_blank"><img src="http://img.youtube.com/vi/J1ZsXrpAgBU/0.jpg"
-alt="Firejail Demo" width="240" height="180" border="10" /><br/>Firejail Demo</a>
+<a href="https://odysee.com/@netblue30:9/firefox" target="_blank">
+<img src="https://thumbs.odycdn.com/acf4b1c66737feb97640fb1d28a7daa6.png"
+alt="Advanced Browser Security" width="240" height="142" border="10" />
+<br/>Advanced Browser Security
+</a>
 </td>
 
 <td>
-<a href="http://www.youtube.com/watch?feature=player_embedded&v=EyEz65RYfw4
-" target="_blank"><img src="http://img.youtube.com/vi/EyEz65RYfw4/0.jpg"
-alt="Debian Install" width="240" height="180" border="10" /><br/>Debian Install</a>
+<a href="https://odysee.com/@netblue30:9/tor" target="_blank">
+<img src="https://thumbs.odycdn.com/f6aa82bd7b86b2f17caed03ccb870d2b.webp"
+alt="Tor Browser Security" width="240" height="142" border="10" />
+<br/>Tor Browser Security
+</a>
 </td>
 
+</tr>
+</table>
 
-</tr><tr>
-<td>
-<a href="http://www.youtube.com/watch?feature=player_embedded&v=Uy2ZTHc4s0w
-" target="_blank"><img src="http://img.youtube.com/vi/Uy2ZTHc4s0w/0.jpg"
-alt="Arch Linux Install" width="240" height="180" border="10" /><br/>Arch Linux Install</a>
+## Links
 
-</td>
-<td>
-<a href="http://www.youtube.com/watch?feature=player_embedded&v=xuMxRx0zSfQ
-" target="_blank"><img src="http://img.youtube.com/vi/xuMxRx0zSfQ/0.jpg"
-alt="Disable Network Access" width="240" height="180" border="10" /><br/>Disable Network Access</a>
-
-</td>
-<td>
-<a href="http://www.youtube.com/watch?feature=player_embedded&v=N-Mso2bSr3o
-" target="_blank"><img src="http://img.youtube.com/vi/N-Mso2bSr3o/0.jpg"
-alt="Firejail Security Deep Dive" width="240" height="180" border="10" /><br/>Firejail Security Deep Dive</a>
-
-</td>
-</tr></table>
-
-Project webpage: https://firejail.wordpress.com/
-
-Download and Installation: https://firejail.wordpress.com/download-2/
-
-Features: https://firejail.wordpress.com/features-3/
-
-Documentation: https://firejail.wordpress.com/documentation-2/
-
-FAQ: https://github.com/netblue30/firejail/wiki/Frequently-Asked-Questions
-
-Wiki: https://github.com/netblue30/firejail/wiki
-
-GitLab-CI status: https://gitlab.com/Firejail/firejail_ci/pipelines/
-
-Video Channel: https://www.youtube.com/channel/UCi5u-syndQYyOeV4NZ04hNA
-
-Backup Video Channel: https://www.bitchute.com/profile/JSBsA1aoQVfW/
+* Project webpage: <https://firejail.wordpress.com/>
+* IRC: <https://web.libera.chat/#firejail>
+* Download and Installation: <https://firejail.wordpress.com/download-2/>
+* Features: <https://firejail.wordpress.com/features-3/>
+* Documentation: <https://firejail.wordpress.com/documentation-2/>
+* FAQ: <https://github.com/netblue30/firejail/wiki/Frequently-Asked-Questions>
+* Wiki: <https://github.com/netblue30/firejail/wiki>
+* GitHub Actions: <https://github.com/netblue30/firejail/actions>
+* GitLab CI: <https://gitlab.com/Firejail/firejail_ci/pipelines>
+* Video Channel: <https://odysee.com/@netblue30:9?order=new>
+* Backup Video Channel: <https://www.bitchute.com/profile/JSBsA1aoQVfW/>
 
 ## Security vulnerabilities
 
-We take security bugs very seriously. If you believe you have found one, please report it by emailing us at netblue30@protonmail.com
-
-`````
-Security Advisory - Feb 8, 2021
-
-Summary: A vulnerability resulting in root privilege escalation was discovered in
-Firejail's OverlayFS code,
-
-Versions affected: Firejail software versions starting with 0.9.30.
-Long Term Support (LTS) Firejail branch is not affected by this bug.
-
-Workaround: Disable overlayfs feature at runtime.
-In a text editor open /etc/firejail/firejail.config file, and set "overlayfs" entry to "no".
-
-      $ grep overlayfs /etc/firejail/firejail.config
-      # Enable or disable overlayfs features, default enabled.
-      overlayfs no
-
-Fix: The bug is fixed in Firejail version 0.9.64.4
-
-GitHub commit: (file configure.ac)
-https://github.com/netblue30/firejail/commit/97d8a03cad19501f017587cc4e47d8418273834b
-
-Credit:  Security researcher Roman Fiedler analyzed the code and discovered the vulnerability.
-Functional PoC exploit code was provided to Firejail development team.
-A description of the problem is here on Roman's blog:
-
-https://unparalleled.eu/publications/2021/advisory-unpar-2021-0.txt
-https://unparalleled.eu/blog/2021/20210208-rigged-race-against-firejail-for-local-root/
-`````
+See [SECURITY.md](SECURITY.md).
 
 ## Installing
 
-Try installing Firejail from your system packages first. Firejail is included in Alpine, ALT Linux, Arch, Chakra, Debian, Deepin, Devuan, Fedora, Gentoo, Manjaro, Mint, NixOS, Parabola, Parrot, PCLinuxOS, ROSA, Solus, Slackware/SlackBuilds, Trisquel, Ubuntu, Void and possibly others.
+### Debian
 
-The firejail 0.9.52-LTS version is deprecated. On Ubuntu 18.04 LTS users are advised to use the [PPA](https://launchpad.net/~deki/+archive/ubuntu/firejail). On Debian buster we recommend to use the [backports](https://packages.debian.org/buster-backports/firejail) package.
+Debian stable (bullseye): We recommend to use the
+[backports](https://packages.debian.org/bullseye-backports/firejail) package.
 
-You can also install one of the [released packages](http://sourceforge.net/projects/firejail/files/firejail), or clone Firejail’s source code from our Git repository and compile manually:
+### Ubuntu
 
-`````
-$ git clone https://github.com/netblue30/firejail.git
-$ cd firejail
-$ ./configure && make && sudo make install-strip
-`````
-On Debian/Ubuntu you will need to install git and gcc compiler. AppArmor
-development libraries and pkg-config are required when using --apparmor
-./configure option:
-`````
-$ sudo apt-get install git build-essential libapparmor-dev pkg-config gawk
-`````
-For --selinux option, add libselinux1-dev (libselinux-devel for Fedora).
+Note: The PPA recommendation is mainly for firejail itself; it should be fine
+to install firetools and firejail-related tools directly from the distribution
+if they are not in the PPA as they tend to be updated less frequently.
 
-Detailed information on using firejail from git is available on the [wiki](https://github.com/netblue30/firejail/wiki/Using-firejail-from-git).
+For Ubuntu 18.04+ and derivatives (such as Linux Mint), users are **strongly
+advised** to use the
+[PPA](https://launchpad.net/~deki/+archive/ubuntu/firejail).
+
+How to add and install from the PPA:
+
+```sh
+sudo add-apt-repository ppa:deki/firejail
+sudo apt-get update
+sudo apt-get install firejail firejail-profiles
+```
+
+Reason: The firejail package for Ubuntu 20.04 has been left vulnerable to
+CVE-2021-26910 for months after a patch for it was posted on Launchpad:
+
+* [CVE-2021-26910](https://github.com/advisories/GHSA-2q4h-h5jp-942w)
+* [firejail version in Ubuntu 20.04 LTS is vulnerable to
+  CVE-2021-26910](https://bugs.launchpad.net/ubuntu/+source/firejail/+bug/1916767)
+
+See also <https://wiki.ubuntu.com/SecurityTeam/FAQ>:
+
+> What software is supported by the Ubuntu Security team?
+>
+> Ubuntu is currently divided into four components: main, restricted, universe
+> and multiverse.  All binary packages in main and restricted are supported by
+> the Ubuntu Security team for the life of an Ubuntu release, while binary
+> packages in universe and multiverse are supported by the Ubuntu community.
+
+Additionally, the PPA version is likely to be more recent and to contain more
+profile fixes.
+
+See the following discussions for details:
+
+* [Should I keep using the version of firejail available in my distro
+  repos?](https://github.com/netblue30/firejail/discussions/4666)
+* [How to install the latest version on Ubuntu and
+  derivatives](https://github.com/netblue30/firejail/discussions/4663)
+
+### Other
+
+Firejail is available in multiple Linux distributions:
+
+<details>
+<summary>Repology</summary>
+<p>
+
+[![Packaging status (Repology)](https://repology.org/badge/vertical-allrepos/firejail.svg)](https://repology.org/project/firejail/versions)
+
+</p>
+</details>
+
+Other than the [aforementioned exceptions](#installing), as long as your
+distribution provides a [supported version](SECURITY.md) of firejail, it's
+generally a good idea to install it from the distribution.
+
+The version can be checked with `firejail --version` after installing.
+
+You can also install one of the [released
+packages](https://github.com/netblue30/firejail/releases).
+
+## Building
+
+You can clone the source code from this git repository and build manually:
+
+```sh
+git clone https://github.com/netblue30/firejail.git
+cd firejail
+./configure && make && sudo make install-strip
+```
+
+On Debian/Ubuntu you will need to install git and gcc.
+
+To build with AppArmor support (which is usually used on Debian, Ubuntu,
+openSUSE and derivatives), install the AppArmor development libraries and
+pkg-config and use the `--enable-apparmor` ./configure option:
+
+```sh
+sudo apt-get install git build-essential libapparmor-dev pkg-config gawk
+```
+
+To build with SELinux support (which is usually used on Fedora, RHEL and
+derivatives), install libselinux1-dev (libselinux-devel on Fedora) and use the
+`--enable-selinux` ./configure option.
+
+Detailed information on using firejail from git is available on the
+[wiki](https://github.com/netblue30/firejail/wiki/Using-firejail-from-git).
 
 ## Running the sandbox
 
-To start the sandbox, prefix your command with “firejail”:
+To start the sandbox, prefix your command with `firejail`:
 
-`````
-$ firejail firefox            # starting Mozilla Firefox
-$ firejail transmission-gtk   # starting Transmission BitTorrent
-$ firejail vlc                # starting VideoLAN Client
-$ sudo firejail /etc/init.d/nginx start
-`````
-Run "firejail --list" in a terminal to list all active sandboxes. Example:
-`````
+```sh
+firejail firefox            # starting Mozilla Firefox
+firejail transmission-gtk   # starting Transmission BitTorrent
+firejail vlc                # starting VideoLAN Client
+sudo firejail /etc/init.d/nginx start
+```
+
+Run `firejail --list` in a terminal to list all active sandboxes.  Example:
+
+```console
 $ firejail --list
 1617:netblue:/usr/bin/firejail /usr/bin/firefox-esr
 7719:netblue:/usr/bin/firejail /usr/bin/transmission-qt
 7779:netblue:/usr/bin/firejail /usr/bin/galculator
 7874:netblue:/usr/bin/firejail /usr/bin/vlc --started-from-file file:///home/netblue/firejail-whitelist.mp4
 7916:netblue:firejail --list
-`````
+```
 
 ## Desktop integration
 
 Integrate your sandbox into your desktop by running the following two commands:
-`````
-$ firecfg --fix-sound
-$ sudo firecfg
-`````
 
-The first command solves some shared memory/PID namespace bugs in PulseAudio software prior to version 9.
-The second command integrates Firejail into your desktop. You would need to logout and login back to apply
-PulseAudio changes.
+```sh
+firecfg --fix-sound
+sudo firecfg
+```
 
-Start your programs the way you are used to: desktop manager menus, file manager, desktop launchers.
-The integration applies to any program supported by default by Firejail. There are about 250 default applications
-in current Firejail version, and the number goes up with every new release.
-We keep the application list in [/usr/lib/firejail/firecfg.config](https://github.com/netblue30/firejail/blob/master/src/firecfg/firecfg.config) file.
+The first command solves some shared memory/PID namespace bugs in PulseAudio
+software prior to version 9.  The second command integrates Firejail into your
+desktop.  You would need to logout and login back to apply PulseAudio changes.
+
+Start your programs the way you are used to: desktop manager menus, file
+manager, desktop launchers.
+
+The integration applies to any program supported by default by Firejail.  There
+are over 900 default applications in the current Firejail version, and the
+number goes up with every new release.
+
+We keep the application list in
+[src/firecfg/firecfg.config](src/firecfg/firecfg.config)
+(/etc/firejail/firecfg.config when installed).
 
 ## Security profiles
 
-Most Firejail command line options can be passed to the sandbox using profile files.
-You can find the profiles for all supported applications in [/etc/firejail](https://github.com/netblue30/firejail/tree/master/etc) directory.
+Most Firejail command line options can be passed to the sandbox using profile
+files.
 
-If you keep additional Firejail security profiles in a public repository, please give us a link:
+You can find the profiles for all supported applications in [etc/](etc/)
+(/etc/firejail/ when installed).
 
-* https://github.com/chiraag-nataraj/firejail-profiles
+We also keep a list of profile fixes for previous released versions in
+[etc-fixes/](etc-fixes/).
 
-* https://github.com/triceratops1/fe
+If you keep additional Firejail security profiles in a public repository,
+please give us a link:
 
-Use this issue to request new profiles: [#1139](https://github.com/netblue30/firejail/issues/1139)
+* <https://github.com/chiraag-nataraj/firejail-profiles>
+* <https://github.com/triceratops1/fe>
 
-You can also use this tool to get a list of syscalls needed by a program: [contrib/syscalls.sh](contrib/syscalls.sh).
+Use this issue to request new profiles:
 
-We also keep a list of profile fixes for previous released versions in [etc-fixes](https://github.com/netblue30/firejail/tree/master/etc-fixes) directory.
-`````
+* [Profile requests](https://github.com/netblue30/firejail/issues/1139)
 
-`````
-## Latest released version: 0.9.64
+You can also use this tool to get a list of syscalls needed by a program:
 
-## Current development version: 0.9.65
+* [contrib/syscalls.sh](contrib/syscalls.sh)
 
-Milestone page: https://github.com/netblue30/firejail/milestone/1
-Release discussion: https://github.com/netblue30/firejail/issues/3696
+## Uninstalling
 
-### jailcheck
-`````
-JAILCHECK(1)                  JAILCHECK man page                  JAILCHECK(1)
+firecfg creates symlinks in /usr/local/bin, so to fully remove firejail, run
+the following before uninstalling:
 
-NAME
-       jailcheck - Simple utility program to test running sandboxes
+```sh
+sudo firecfg --clean
+```
 
-SYNOPSIS
-       sudo jailcheck [OPTIONS] [directory]
+See `man firecfg` for details.
 
-DESCRIPTION
-       jailcheck attaches itself to all sandboxes started by the user and per‐
-       forms some basic tests on the sandbox filesystem:
+Note: Broken symlinks are ignored when searching for an executable in `$PATH`,
+so uninstalling without doing the above should not cause issues.
 
-       1. Virtual directories
-              jailcheck extracts a list with the main virtual directories  in‐
-              stalled by the sandbox.  These directories are build by firejail
-              at startup using --private* and --whitelist commands.
+## Latest released version: 0.9.72
 
-       2. Noexec test
-              jailcheck inserts executable programs in  /home/username,  /tmp,
-              and  /var/tmp  directories and tries to run them from inside the
-              sandbox, thus testing if the directory is executable or not.
+## Current development version: 0.9.73
 
-       3. Read access test
-              jailcheck creates test files in the directories specified by the
-              user and tries to read them from inside the sandbox.
+### --keep-shell-rc
 
-       4. AppArmor test
+```text
+       --keep-shell-rc
+              By default, when using a private home directory, firejail copies
+              files  from the system's user home template (/etc/skel) into it,
+              which overrides attempts to whitelist the original  files  (such
+              as  ~/.bashrc and ~/.zshrc).  This option disables this feature,
+              and enables the user to whitelist the original files.
+```
 
-       5. Seccomp test
+### private-etc rework
 
-       The program is started as root using sudo.
+```text
+       --private-etc, --private-etc=file,directory,@group
+              The files installed by --private-etc are copies of the original
+              system files from /etc directory.  By default, the command
+              brings in a skeleton of files and directories used by most
+              console tools:
 
-OPTIONS
-       --debug
-              Print debug messages.
+              $ firejail --private-etc dig debian.org
 
-       -?, --help
-              Print options and exit.
+              For X11/GTK/QT/Gnome/KDE  programs add @x11 group as a
+              parameter. Example:
 
-       --version
-              Print program version and exit.
+              $ firejail --private-etc=@x11,gcrypt,python* gimp
 
-       [directory]
-              One  or  more  directories in user home to test for read access.
-              ~/.ssh and ~/.gnupg are tested by default.
+              gcrypt and /etc/python* directories are not part of the generic
+              @x11 group.  File globbing is supported.
 
-OUTPUT
-       For each sandbox detected we print the following line:
+              For games, add @games group:
 
-            PID:USER:Sandbox Name:Command
+              $ firejail --private-etc=@games,@x11 warzone2100
 
-       It is followed by relevant sandbox information, such as the virtual di‐
-       rectories and various warnings.
+              Sound and networking files are included automatically, unless
+              --nosound or --net=none are specified.  Files for encrypted
+              TLS/SSL protocol are in @tls-ca group.
 
-EXAMPLE
-       $ sudo jailcheck
-       2014:netblue::firejail /usr/bin/gimp
-          Virtual dirs: /tmp, /var/tmp, /dev, /usr/share,
-          Warning: I can run programs in /home/netblue
+              $ firejail --private-etc=@tls-ca,wgetrc wget https://debian.org
 
-       2055:netblue::firejail /usr/bin/ssh -X netblue@x.y.z.net
-          Virtual dirs: /var/tmp, /dev, /usr/share, /run/user/1000,
-          Warning: I can read ~/.ssh
+              Note: The easiest way to extract the list of /etc files accessed
+              by your program is using strace utility:
 
-       2186:netblue:libreoffice:firejail --appimage /opt/LibreOffice-fresh.ap‐
-       pimage
-          Virtual dirs: /tmp, /var/tmp, /dev,
+              $ strace /usr/bin/transmission-qt 2>&1 | grep open | grep etc
+```
 
-       26090:netblue::/usr/bin/firejail /opt/firefox/firefox
-          Virtual dirs: /home/netblue, /tmp, /var/tmp, /dev, /etc, /usr/share,
-                        /run/user/1000,
+We keep the list of groups in
+[src/include/etc_groups.h](src/include/etc_groups.h).
 
-       26160:netblue:tor:firejail --private=~/tor-browser_en-US ./start-tor
-          Warning: AppArmor not enabled
-          Virtual dirs: /home/netblue, /tmp, /var/tmp, /dev, /etc, /bin,
-                        /usr/share, /run/user/1000,
-          Warning: I can run programs in /home/netblue
+Discussion:
 
-LICENSE
-       This program is free software; you can redistribute it and/or modify it
-       under  the  terms of the GNU General Public License as published by the
-       Free Software Foundation; either version 2 of the License, or (at  your
-       option) any later version.
+* [private-etc rework](https://github.com/netblue30/firejail/discussions/5610)
 
-       Homepage: https://firejail.wordpress.com
+### Landlock support
 
-SEE ALSO
-       firejail(1),  firemon(1), firecfg(1), firejail-profile(5), firejail-lo‐
-       gin(5), firejail-users(5),
+* Added on #6078, which is based on #5315 from ChrysoliteAzalea/landlock
+* Compile-time detection based on linux/landlock.h - if the header is found,
+  the feature is compiled in
+* Runtime detection based on whether Landlock is supported by the kernel and is
+  enabled on the system
 
-0.9.65                             May 2021                       JAILCHECK(1)
-`````
+```text
+LANDLOCK
+       Landlock is a Linux security module first introduced in version 5.13 of
+       the  Linux  kernel.  It allows unprivileged processes to restrict their
+       access to the filesystem.  Once imposed, these restrictions  can  never
+       be  removed,  and  all child processes created by a Landlock-restricted
+       processes inherit these restrictions.  Firejail supports Landlock as an
+       additional  sandboxing  feature.  It can be used to ensure that a sand‐
+       boxed application can only access files and directories that it was ex‐
+       plicitly  allowed  to access.  Firejail supports populating the ruleset
+       with both a basic set of rules (see --landlock) and with a  custom  set
+       of rules.
+
+       Important notes:
+
+              - A process can install a Landlock ruleset only if it has either
+              CAP_SYS_ADMIN in its effective capability set, or  the  "No  New
+              Privileges"  restriction enabled.  Because of this, enabling the
+              Landlock feature will also cause Firejail to enable the "No  New
+              Privileges"  restriction,  regardless  of  the  profile  or  the
+              --nonewprivs command line option.
+
+              - Access to the /proc directory is managed through  the  --land‐
+              lock.proc command line option.
+
+              -  Access  to  the  /etc directory is automatically allowed.  To
+              override this, use the --writable-etc command line option.   You
+              can  also use the --private-etc option to restrict access to the
+              /etc directory.
+
+       To enable Landlock self-restriction on top of your current Firejail se‐
+       curity  features,  pass  --landlock flag to Firejail command line.  You
+       can also use --landlock.read, --landlock.write, --landlock.special  and
+       --landlock.execute  options  together with --landlock or instead of it.
+       Example:
+
+       $ firejail --landlock --landlock.read=/media --landlock.proc=ro mc
+```
 
 ### Profile Statistics
 
-A small tool to print profile statistics. Compile as usual and run in /etc/profiles:
-```
-$ sudo cp src/profstats/profstats /etc/firejail/.
-$ cd /etc/firejail
-$ ./profstats *.profile
+A small tool to print profile statistics.  Compile and install as usual.  The
+tool is installed in the /usr/lib/firejail directory.
+
+Run it over the profiles in /etc/profiles:
+
+```console
+$ /usr/lib/firejail/profstats /etc/firejail/*.profile
+No include .local found in /etc/firejail/noprofile.profile
+Warning: multiple caps in /etc/firejail/tidal-hifi.profile
+Warning: multiple caps in /etc/firejail/tqemu.profile
+Warning: multiple caps in /etc/firejail/transmission-daemon.profile
+
 Stats:
-    profiles			1135
-    include local profile	1135   (include profile-name.local)
-    include globals		1106   (include globals.local)
-    blacklist ~/.ssh		1009   (include disable-common.inc)
-    seccomp			1035
-    capabilities		1130
-    noexec			1011   (include disable-exec.inc)
-    noroot			944
-    memory-deny-write-execute	242
-    apparmor			667
-    private-bin			635
-    private-dev			992
-    private-etc			508
-    private-tmp			866
-    whitelist home directory	542
-    whitelist var		799   (include whitelist-var-common.inc)
-    whitelist run/user		597   (include whitelist-runuser-common.inc
+    profiles			1305
+    include local profile	1304   (include profile-name.local)
+    include globals		1271   (include globals.local)
+    blacklist ~/.ssh		1167   (include disable-common.inc)
+    seccomp			1178
+    capabilities		1298
+    noexec			1178   (include disable-exec.inc)
+    noroot			1077
+    memory-deny-write-execute	309
+    restrict-namespaces		1026
+    apparmor			833
+    private-bin			790
+    private-dev			1140
+    private-etc			811
+    private-lib			85
+    private-tmp			1004
+    whitelist home directory	642
+    whitelist var		950   (include whitelist-var-common.inc)
+    whitelist run/user		1268   (include whitelist-runuser-common.inc
 					or blacklist ${RUNUSER})
-    whitelist usr/share		569   (include whitelist-usr-share-common.inc
-    net none			389
-    dbus-user none 		619
-    dbus-user filter 		105
-    dbus-system none 		770
-    dbus-system filter 		7
+    whitelist usr/share		732   (include whitelist-usr-share-common.inc
+    net none			443
+    dbus-user none 		738
+    dbus-user filter 		192
+    dbus-system none 		939
+    dbus-system filter 		13
+
 ```
-
-### New profiles:
-
-vmware-view, display-im6.q16, ipcalc, ipcalc-ng, ebook-convert, ebook-edit, ebook-meta, ebook-polish, lzop,
-avidemux, calligragemini, vmware-player, vmware-workstation, gget, com.github.phase1geo.minder, nextcloud-desktop,
-pcsxr, PPSSPPSDL, openmw, openmw-launcher, jami-gnome, PCSX2, bcompare, b2sum, cksum, md5sum, sha1sum, sha224sum,
-sha256sum, sha384sum, sha512sum, sum, librewold-nightly, Quodlibet, tmux, sway, alienarena, alienarena-wrapper,
-ballbuster, ballbuster-wrapper, colorful, colorful-wrapper, gl-117, gl-117-wrapper, glaxium, glaxium-wrapper,
-pinball, pinball-wrapper, etr-wrapper, neverball-wrapper, neverputt-wrapper, supertuxkart-wrapper, firedragon
-neochat, node, nvm, cargo, LibreCAD, blobby, funnyboat

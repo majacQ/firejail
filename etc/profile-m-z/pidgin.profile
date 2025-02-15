@@ -15,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -37,12 +36,13 @@ nonewprivs
 noroot
 notv
 nou2f
-protocol unix,inet,inet6
+protocol unix,inet,inet6,netlink
 seccomp
-# shell none
 tracelog
 
-# private-bin pidgin
+#private-bin pidgin
 private-cache
 private-dev
 private-tmp
+
+restrict-namespaces

@@ -13,7 +13,6 @@ noblacklist ${HOME}/.config/redshift.conf
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
-include disable-passwdmgr.inc
 include disable-interpreters.inc
 include disable-programs.inc
 include disable-xdg.inc
@@ -40,7 +39,6 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
@@ -52,3 +50,4 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

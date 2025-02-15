@@ -11,7 +11,6 @@ noblacklist ${HOME}/.config/xfburn
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -24,9 +23,10 @@ notv
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
-# private-bin xfburn
-# private-dev
-# private-tmp
+#private-bin xfburn
+#private-dev
+#private-tmp
+
+restrict-namespaces

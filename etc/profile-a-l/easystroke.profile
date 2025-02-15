@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -38,7 +37,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
@@ -46,12 +44,13 @@ disable-mnt
 #private-bin bash,easystroke,sh
 private-cache
 private-dev
-private-etc alternatives,fonts,group,passwd
+private-etc
 # breaks custom shell command functionality
 #private-lib gdk-pixbuf-2.*,gio,gvfs/libgvfscommon.so,libgconf-2.so.*,librsvg-2.so.*
 private-tmp
 
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

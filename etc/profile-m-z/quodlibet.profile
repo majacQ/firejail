@@ -21,7 +21,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -55,13 +54,14 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 private-bin exfalso,operon,python*,quodlibet,sh
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,ca-certificates,crypto-policies,dconf,fonts,gtk-3.0,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,passwd,pki,pulse,resolv.conf,ssl
+private-etc @tls-ca,@x11
 private-tmp
 
 dbus-system none
+
+restrict-namespaces

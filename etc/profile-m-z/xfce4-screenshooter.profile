@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -37,16 +36,16 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin xfce4-screenshooter,xfconf-query
 private-dev
-private-etc ca-certificates,crypto-policies,dconf,fonts,gtk-3.0,pki,resolv.conf,ssl
+private-etc @tls-ca,@x11
 private-tmp
 
 dbus-user none
 dbus-system none
 
-# memory-deny-write-execute -- see #3790
+#memory-deny-write-execute # see #3790
+restrict-namespaces

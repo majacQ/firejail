@@ -8,11 +8,13 @@ include globals.local
 
 noblacklist ${HOME}/.crawl
 
+# Allow lua (blacklisted by disable-interpreters.inc)
+include allow-lua.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -36,7 +38,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 
 disable-mnt
 private-bin crawl,crawl-tiles
@@ -46,3 +47,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

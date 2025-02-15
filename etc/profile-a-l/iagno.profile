@@ -10,10 +10,15 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
+whitelist ${HOME}/.local/share/glib-2.0/schemas
+whitelist /usr/share/gdm
+whitelist /usr/share/iagno
+include whitelist-common.inc
+include whitelist-runuser-common.inc
+include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
 
 apparmor
@@ -29,13 +34,15 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
+seccomp.block-secondary
 
 disable-mnt
-private
 private-bin iagno
 private-dev
+private-etc @x11,gconf
 private-tmp
 
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
+
+restrict-namespaces

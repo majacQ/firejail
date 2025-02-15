@@ -11,7 +11,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -25,12 +24,12 @@ notv
 novideo
 protocol unix,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin tilp
 private-cache
-private-etc alternatives,fonts
+private-etc
 private-tmp
 
+restrict-namespaces

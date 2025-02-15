@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -20,7 +20,17 @@
 
 #include "firejail.h"
 #include "../include/pid.h"
+#include <fcntl.h>
 #define BUFLEN 4096
+
+static void delete_sandbox_run_file(pid_t pid) {
+	char *fname;
+	if (asprintf(&fname, "%s/%d", RUN_FIREJAIL_SANDBOX_DIR, pid) == -1)
+		errExit("asprintf");
+	int rv = unlink(fname);
+	(void) rv;
+	free(fname);
+}
 
 static void delete_x11_run_file(pid_t pid) {
 	char *fname;
@@ -68,6 +78,7 @@ static void delete_network_run_file(pid_t pid) {
 
 
 void delete_run_files(pid_t pid) {
+	delete_sandbox_run_file(pid);
 	delete_bandwidth_run_file(pid);
 	delete_network_run_file(pid);
 	delete_name_run_file(pid);
@@ -111,6 +122,7 @@ void set_name_run_file(pid_t pid) {
 	// mode and ownership
 	SET_PERMS_STREAM(fp, 0, 0, 0644);
 	fclose(fp);
+	free(fname);
 }
 
 
@@ -130,6 +142,7 @@ void set_x11_run_file(pid_t pid, int display) {
 	// mode and ownership
 	SET_PERMS_STREAM(fp, 0, 0, 0644);
 	fclose(fp);
+	free(fname);
 }
 
 void set_profile_run_file(pid_t pid, const char *fname) {
@@ -151,4 +164,53 @@ void set_profile_run_file(pid_t pid, const char *fname) {
 	fclose(fp);
 	EUID_USER();
 	free(runfile);
+}
+
+static int sandbox_lock_fd = -1;
+void set_sandbox_run_file(pid_t pid, pid_t child) {
+	char *runfile;
+	if (asprintf(&runfile, "%s/%d", RUN_FIREJAIL_SANDBOX_DIR, pid) == -1)
+		errExit("asprintf");
+
+	EUID_ROOT();
+	// the file is deleted first
+	// this file should be opened with O_CLOEXEC set
+	int fd = open(runfile, O_CREAT | O_WRONLY | O_TRUNC | O_CLOEXEC, S_IRUSR | S_IWUSR);
+	if (fd < 0) {
+		fprintf(stderr, "Error: cannot create %s\n", runfile);
+		exit(1);
+	}
+	free(runfile);
+	EUID_USER();
+
+	char buf[64];
+	snprintf(buf, sizeof(buf), "%d\n", child);
+	size_t len = strlen(buf);
+	size_t done = 0;
+	while (done != len) {
+		ssize_t rv = write(fd, buf + done, len - done);
+		if (rv < 0)
+			errExit("write");
+		done += rv;
+	}
+
+	// set exclusive lock on the file
+	// the lock is never inherited, and is released if this process dies ungracefully
+	struct flock sandbox_lock = {
+		.l_type = F_WRLCK,
+		.l_whence = SEEK_SET,
+		.l_start = 0,
+		.l_len = 0,
+	};
+	if (fcntl(fd, F_SETLK, &sandbox_lock) < 0)
+		errExit("fcntl");
+
+	sandbox_lock_fd = fd;
+}
+
+void release_sandbox_lock(void) {
+	assert(sandbox_lock_fd > -1);
+
+	close(sandbox_lock_fd);
+	sandbox_lock_fd = -1;
 }

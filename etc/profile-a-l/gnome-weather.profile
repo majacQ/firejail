@@ -17,7 +17,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -39,12 +38,12 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
-# private-bin gjs,gnome-weather
+#private-bin gjs,gnome-weather
 private-dev
-# private-etc alternatives,ca-certificates,crypto-policies,fonts,pki,ssl
+#private-etc alternatives,ca-certificates,crypto-policies,fonts,pki,ssl
 private-tmp
 
+restrict-namespaces

@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -24,7 +23,6 @@ include whitelist-var-common.inc
 
 apparmor
 caps.drop all
-#hostname galculator - breaks Arch Linux
 #ipc-namespace
 net none
 nodvd
@@ -38,17 +36,17 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 private-bin galculator
 private-cache
 private-dev
-private-etc alternatives,fonts
+private-etc
 private-lib
 private-tmp
 
 dbus-user none
 dbus-system none
 
-#memory-deny-write-execute - breaks on Arch (see issue #1803)
+#memory-deny-write-execute # breaks on Arch (see issue #1803)
+restrict-namespaces

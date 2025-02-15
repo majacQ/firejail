@@ -8,10 +8,12 @@ include globals.local
 
 blacklist ${RUNUSER}
 
+# Allow lua (blacklisted by disable-interpreters.inc)
+include allow-lua.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -29,7 +31,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
@@ -40,3 +41,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

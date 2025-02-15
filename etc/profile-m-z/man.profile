@@ -12,11 +12,13 @@ blacklist ${RUNUSER}
 noblacklist ${HOME}/.local/share/man
 noblacklist ${HOME}/.rustup
 
+# Allow perl (blacklisted by disable-interpreters.inc)
+include allow-perl.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -26,7 +28,6 @@ include disable-xdg.inc
 whitelist /usr/share/groff
 whitelist /usr/share/info
 whitelist /usr/share/lintian
-whitelist /usr/share/locale
 whitelist /usr/share/man
 whitelist /var/cache/man
 #include whitelist-common.inc
@@ -51,7 +52,6 @@ novideo
 nou2f
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
@@ -59,7 +59,7 @@ disable-mnt
 #private-bin apropos,bash,cat,catman,col,gpreconv,groff,grotty,gunzip,gzip,less,man,most,nroff,preconv,sed,sh,tbl,tr,troff,whatis,which,xtotroff,zcat,zsoelim
 private-cache
 private-dev
-private-etc alternatives,fonts,groff,locale,locale.alias,locale.conf,man_db.conf,manpath.config,selinux,sysless,xdg
+private-etc @x11,groff,man_db.conf,manpath.config,sysless
 #private-tmp
 
 dbus-user none
@@ -67,4 +67,5 @@ dbus-system none
 
 memory-deny-write-execute
 read-only ${HOME}
-read-only /tmp
+#read-only /tmp # breaks mandoc (see #4927)
+restrict-namespaces

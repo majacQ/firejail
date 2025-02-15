@@ -8,15 +8,14 @@ include globals.local
 
 # Tracker is started by systemd on most systems. Therefore it is not firejailed by default
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}/wayland-*
 
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
+include disable-x11.inc
 
 include whitelist-runuser-common.inc
 
@@ -32,9 +31,10 @@ notv
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
-# private-bin tracker
-# private-dev
-# private-tmp
+#private-bin tracker
+#private-dev
+#private-tmp
+
+restrict-namespaces

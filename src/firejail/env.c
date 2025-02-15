@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <limits.h>
 
 typedef struct env_t {
 	struct env_t *next;
@@ -117,10 +118,7 @@ void env_defaults(void) {
 //	env_store_name_val("QTWEBENGINE_DISABLE_SANDBOX", "1", SETENV);
 //	env_store_name_val("MOZ_NO_REMOTE, "1", SETENV);
 	env_store_name_val("container", "firejail", SETENV); // LXC sets container=lxc,
-	if (!cfg.shell)
-		cfg.shell = guess_shell();
-	if (cfg.shell)
-		env_store_name_val("SHELL", cfg.shell, SETENV);
+	env_store_name_val("SHELL", cfg.usershell, SETENV);
 
 	// spawn KIO slaves inside the sandbox
 	env_store_name_val("KDE_FORK_SLAVES", "1", SETENV);
@@ -262,7 +260,7 @@ static const char * const env_whitelist[] = {
 	"LANG",
 	"LANGUAGE",
 	"LC_MESSAGES",
-	"PATH",
+	// "PATH",
 	"DISPLAY"	// required by X11
 };
 
@@ -281,7 +279,8 @@ static void env_apply_list(const char * const *list, unsigned int num_items) {
 
 	while (env) {
 		if (env->op == SETENV) {
-			for (unsigned int i = 0; i < num_items; i++)
+			unsigned int i;
+			for (i = 0; i < num_items; i++)
 				if (strcmp(env->name, list[i]) == 0) {
 					// sanity check for whitelisted environment variables
 					if (strlen(env->name) + strlen(env->value) >= MAX_ENV_LEN) {
@@ -311,6 +310,10 @@ void env_apply_whitelist(void) {
 		errExit("clearenv");
 
 	env_apply_list(env_whitelist, ARRAY_SIZE(env_whitelist));
+
+	// hardcoding PATH
+	if (setenv("PATH", "/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin", 1) < 0)
+		errExit("setenv");
 }
 
 // Filter env variables for a sbox app

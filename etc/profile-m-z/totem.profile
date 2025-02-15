@@ -14,13 +14,13 @@ include allow-lua.inc
 include allow-python3.inc
 
 noblacklist ${HOME}/.config/totem
+noblacklist ${HOME}/.dvdcss
 noblacklist ${HOME}/.local/share/totem
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -28,6 +28,7 @@ read-only ${DESKTOP}
 mkdir ${HOME}/.config/totem
 mkdir ${HOME}/.local/share/totem
 whitelist ${HOME}/.config/totem
+whitelist ${HOME}/.dvdcss
 whitelist ${HOME}/.local/share/totem
 whitelist /usr/share/totem
 include whitelist-common.inc
@@ -36,7 +37,7 @@ include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
 
-# apparmor - makes settings immutable
+#apparmor # makes settings immutable
 caps.drop all
 netfilter
 nogroups
@@ -46,16 +47,17 @@ noroot
 nou2f
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 private-bin totem
 # totem needs access to ~/.cache/tracker or it exits
 #private-cache
 private-dev
-# private-etc alternatives,asound.conf,ca-certificates,crypto-policies,fonts,machine-id,pki,pulse,ssl
+private-etc @tls-ca,@x11,python*
 private-tmp
 
 # makes settings immutable
-# dbus-user none
+#dbus-user none
 dbus-system none
+
+restrict-namespaces

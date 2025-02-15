@@ -31,13 +31,14 @@ notv
 nou2f
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,hosts,ld.so.cache,localtime,nsswitch.conf,pki,resolv.conf,ssl
+private-etc @tls-ca
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

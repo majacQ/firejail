@@ -18,7 +18,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -47,14 +46,15 @@ novideo
 # blacklisting of mbind system calls breaks old version
 seccomp !mbind
 protocol unix,inet,inet6,netlink
-shell none
 tracelog
 
 disable-mnt
 private-cache
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,fonts,machine-id,pki,QGIS,QGIS.conf,resolv.conf,ssl,Trolltech.conf
+private-etc @tls-ca,@x11,QGIS,QGIS.conf
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

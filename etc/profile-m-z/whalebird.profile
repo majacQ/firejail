@@ -10,6 +10,7 @@ include globals.local
 ignore include whitelist-runuser-common.inc
 ignore include whitelist-usr-share-common.inc
 
+ignore apparmor
 ignore dbus-user none
 ignore dbus-system none
 
@@ -20,8 +21,8 @@ whitelist ${HOME}/.config/Whalebird
 
 no3d
 
-private-bin whalebird
-private-etc fonts,machine-id
+private-bin electron,electron[0-9],electron[0-9][0-9],whalebird
+private-etc @tls-ca
 
 # Redirect
-include electron.profile
+include electron-common.profile

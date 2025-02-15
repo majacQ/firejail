@@ -14,15 +14,16 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
+include disable-write-mnt.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.config/zathura
 mkdir ${HOME}/.local/share/zathura
 whitelist /usr/share/doc
 whitelist /usr/share/zathura
+include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
 
@@ -41,13 +42,13 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
+seccomp.block-secondary
 tracelog
 
 private-bin zathura
 private-cache
 private-dev
-private-etc alternatives,fonts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,machine-id
+private-etc
 # private-lib has problems on Debian 10
 #private-lib gcc/*/*/libgcc_s.so.*,gcc/*/*/libstdc++.so.*,libarchive.so.*,libdjvulibre.so.*,libgirara-gtk*,libpoppler-glib.so.*,libspectre.so.*,zathura
 private-tmp
@@ -58,3 +59,4 @@ dbus-system none
 read-only ${HOME}
 read-write ${HOME}/.config/zathura
 read-write ${HOME}/.local/share/zathura
+restrict-namespaces

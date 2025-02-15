@@ -29,12 +29,13 @@ include allow-python3.inc
 # Allow ssh (blacklisted by disable-common.inc)
 include allow-ssh.inc
 
+blacklist /usr/libexec
+
 # Add the next line to your meld.local if you don't need to compare files in disable-common.inc.
 #include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 # Add the next line to your meld.local if you don't need to compare files in disable-programs.inc.
 #include disable-programs.inc
 include disable-shell.inc
@@ -66,7 +67,6 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 private-bin bzr,cvs,git,hg,meld,python*,svn
@@ -78,3 +78,4 @@ private-dev
 private-tmp
 
 read-only ${HOME}/.ssh
+restrict-namespaces

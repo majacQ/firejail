@@ -8,17 +8,26 @@ include globals.local
 
 noblacklist ${HOME}/.config/yelp
 
+# sh is needed to allow Firefox to open links
+include allow-bin-sh.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
+# The lines below are needed to find the default Firefox profile name, to allow
+# opening links in an existing instance of Firefox (note that it still fails if
+# there isn't a Firefox instance running with the default profile; see #5352)
+noblacklist ${HOME}/.mozilla
+whitelist ${HOME}/.mozilla/firefox/profiles.ini
+
 mkdir ${HOME}/.config/yelp
 whitelist ${HOME}/.config/yelp
+whitelist /usr/libexec/webkit2gtk-4.0
 whitelist /usr/share/doc
 whitelist /usr/share/groff
 whitelist /usr/share/help
@@ -33,35 +42,34 @@ include whitelist-var-common.inc
 
 apparmor
 caps.drop all
-# machine-id breaks sound - add the next line to your yelp.local if you don't need sound support.
-#machine-id
+#machine-id # add this to your yelp.local if you don't need sound support.
 net none
 nodvd
 nogroups
 noinput
 nonewprivs
 noroot
-# nosound - add the next line to your yelp.local if you don't need sound support.
-#nosound
+#nosound # add this to your yelp.local if you don't need sound support.
 notv
 nou2f
 novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin groff,man,tbl,troff,yelp
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,crypto-policies,cups,dconf,drirc,fonts,gcrypt,groff,gtk-3.0,machine-id,man_db.conf,openal,os-release,pulse,sgml,xml
+private-etc @games,@tls-ca,@x11,cups,groff,man_db.conf,os-release,sgml,xml
 private-tmp
 
 dbus-user filter
 dbus-user.own org.gnome.Yelp
 dbus-user.talk ca.desrt.dconf
+# Allow D-Bus communication with Firefox for opening links
+dbus-user.talk org.mozilla.*
 dbus-system none
 
 # read-only ${HOME} breaks some features:
@@ -75,3 +83,5 @@ read-write ${HOME}/.cache
 # your yelp.local if you need PDF printing support.
 #noblacklist ${DOCUMENTS}
 #whitelist ${DOCUMENTS}
+
+restrict-namespaces

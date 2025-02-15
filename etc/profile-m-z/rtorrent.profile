@@ -6,11 +6,9 @@ include rtorrent.local
 # Persistent global definitions
 include globals.local
 
-
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -27,9 +25,10 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-bin rtorrent
 private-cache
 private-dev
 private-tmp
+
+restrict-namespaces

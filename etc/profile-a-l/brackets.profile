@@ -13,7 +13,6 @@ noblacklist ${HOME}/.config/Brackets
 include allow-common-devel.inc
 
 include disable-common.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -29,7 +28,8 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp !chroot,!ioperm
-shell none
 
 private-cache
 private-dev
+
+#restrict-namespaces

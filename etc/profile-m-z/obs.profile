@@ -10,6 +10,9 @@ noblacklist ${MUSIC}
 noblacklist ${PICTURES}
 noblacklist ${VIDEOS}
 
+# Allow lua (blacklisted by disable-interpreters.inc)
+include allow-lua.inc
+
 # Allow python (blacklisted by disable-interpreters.inc)
 include allow-python2.inc
 include allow-python3.inc
@@ -18,7 +21,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -34,7 +36,6 @@ notv
 nou2f
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 private-bin bash,obs,obs-ffmpeg-mux,python*,sh
@@ -42,3 +43,4 @@ private-cache
 private-dev
 private-tmp
 
+restrict-namespaces

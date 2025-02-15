@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -23,6 +23,94 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+
+void netfilter_netlock(pid_t pid) {
+	EUID_ASSERT();
+
+	// give the sandbox a chance to start up before entering the network namespace
+	sleep(1);
+	enter_network_namespace(pid);
+
+	char *flog;
+	if (asprintf(&flog, "/run/firejail/network/%d-netlock", getpid()) == -1)
+		errExit("asprintf");
+	FILE *fp = fopen(flog, "w");
+	if (!fp)
+		errExit("fopen");
+	fclose(fp);
+
+	// try to find a X terminal
+	char *terminal = NULL;
+	if (access("/usr/bin/xterm", X_OK) == 0)
+		terminal = "/usr/bin/xterm";
+	else if (access("/usr/bin/lxterminal", X_OK) == 0)
+		terminal = "/usr/bin/lxterminal";
+	else if (access("/usr/bin/xfce4-terminal", X_OK) == 0)
+		terminal = "/usr/bin/xfce4-terminal";
+	else if (access("/usr/bin/konsole", X_OK) == 0)
+		terminal = "/usr/bin/konsole";
+// problem: newer gnome-terminal versions don't support -e command line option???
+// same for mate-terminal
+
+	if (isatty(STDIN_FILENO))
+		terminal = NULL;
+
+	if (terminal) {
+		pid_t p = fork();
+		if (p == -1)
+			; // run without terminal logger
+		else if (p == 0) { // child
+			drop_privs(0);
+			env_apply_all();
+			umask(orig_umask);
+
+			char *cmd;
+			if (asprintf(&cmd, "%s -e \"%s/firejail/fnetlock --tail --log=%s\"", terminal, LIBDIR, flog) == -1)
+				errExit("asprintf");
+			int rv = system(cmd);
+			(void) rv;
+			exit(0);
+		}
+	}
+
+	char *cmd;
+	if (asprintf(&cmd, "%s/firejail/fnetlock --log=%s", LIBDIR, flog) == -1)
+		errExit("asprintf");
+	free(flog);
+
+	//************************
+	// build command
+	//************************
+	char *arg[4];
+	arg[0] = "/bin/sh";
+	arg[1] = "-c";
+	arg[2] = cmd;
+	arg[3] = NULL;
+	clearenv();
+	sbox_exec_v(SBOX_ROOT | SBOX_CAPS_NETWORK | SBOX_SECCOMP, arg);
+	// it will never get here!!
+}
+
+void netfilter_trace(pid_t pid, const char *cmd) {
+	EUID_ASSERT();
+
+	// a pid of 0 means the main system network namespace
+	if (pid)
+		enter_network_namespace(pid);
+
+	//************************
+	// build command
+	//************************
+	char *arg[4];
+	arg[0] = "/bin/sh";
+	arg[1] = "-c";
+	arg[2] = (char *) cmd;
+	arg[3] = NULL;
+
+	clearenv();
+	sbox_exec_v(SBOX_ROOT | SBOX_CAPS_NETWORK | SBOX_SECCOMP | SBOX_ALLOW_STDIN, arg);
+	// it will never get here!!
+}
 
 void check_netfilter_file(const char *fname) {
 	EUID_ASSERT();
@@ -160,5 +248,5 @@ void netfilter_print(pid_t pid, int ipv6) {
 		exit(1);
 	}
 
-	sbox_run(SBOX_ROOT | SBOX_CAPS_NETWORK | SBOX_SECCOMP, 2, iptables, "-vL");
+	sbox_run(SBOX_ROOT | SBOX_CAPS_NETWORK | SBOX_SECCOMP, 2, iptables, "-nvL");
 }

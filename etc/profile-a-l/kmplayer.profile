@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -33,10 +32,10 @@ noroot
 nou2f
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
-# private-bin kmplayer,mplayer
+#private-bin kmplayer,mplayer
 private-cache
 private-dev
 private-tmp
 
+restrict-namespaces

@@ -11,15 +11,17 @@ blacklist ${RUNUSER}
 
 noblacklist ${DOCUMENTS}
 
+include allow-bin-sh.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
+include whitelist-runuser-common.inc
 # breaks pdf output
 #include whitelist-var-common.inc
 
@@ -40,18 +42,18 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
+seccomp.block-secondary
 tracelog
 x11 none
 
 disable-mnt
-private-bin context,latex,mktexfmt,pandoc,pdflatex,pdfroff,prince,weasyprint,wkhtmltopdf
 private-cache
 private-dev
-private-etc alternatives,texlive,texmf
+private-etc texlive,texmf
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

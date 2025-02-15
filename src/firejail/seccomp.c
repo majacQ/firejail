@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -21,6 +21,7 @@
 #include "firejail.h"
 #include "../include/seccomp.h"
 #include <sys/mman.h>
+#include <sys/wait.h>
 
 typedef struct filter_list {
 	struct filter_list *next;
@@ -70,9 +71,17 @@ int seccomp_install_filters(void) {
 			assert(fl->fname);
 			if (arg_debug)
 				printf("Installing %s seccomp filter\n", fl->fname);
+			int rv = 0;
+#ifdef SECCOMP_FILTER_FLAG_LOG
+			if (checkcfg(CFG_SECCOMP_LOG))
+				rv = syscall(SYS_seccomp, SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_LOG, &fl->prog);
+			else
+				rv = prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &fl->prog);
+#else
+			rv = prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &fl->prog);
+#endif
 
-			if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &fl->prog)) {
-
+			if (rv == -1) {
 				if (!err_printed)
 					fwarning("seccomp disabled, it requires a Linux kernel version 3.5 or newer.\n");
 				err_printed = 1;
@@ -208,7 +217,8 @@ int seccomp_filter_drop(bool native) {
 	//	- seccomp
 	if (cfg.seccomp_list_drop == NULL) {
 		// default seccomp if error action is not changed
-		if (cfg.seccomp_list == NULL && arg_seccomp_error_action == DEFAULT_SECCOMP_ERROR_ACTION) {
+		if ((cfg.seccomp_list == NULL || cfg.seccomp_list[0] == '\0')
+		    && arg_seccomp_error_action == DEFAULT_SECCOMP_ERROR_ACTION) {
 			if (arg_seccomp_block_secondary)
 				seccomp_filter_block_secondary();
 			else {
@@ -261,7 +271,7 @@ int seccomp_filter_drop(bool native) {
 			}
 
 			// build the seccomp filter as a regular user
-			if (list)
+			if (list && list[0])
 				if (arg_allow_debuggers)
 					rv = sbox_run(SBOX_USER | SBOX_CAPS_NONE | SBOX_SECCOMP, 7,
 						      PATH_FSECCOMP, command, "drop", filter, postexec_filter, list, "allow-debuggers");
@@ -406,7 +416,7 @@ int seccomp_filter_mdwx(bool native) {
 
 	// build the seccomp filter as a regular user
 	int rv = sbox_run(SBOX_USER | SBOX_CAPS_NONE | SBOX_SECCOMP, 3,
-		 PATH_FSECCOMP, command, filter);
+		PATH_FSECCOMP, command, filter);
 
 	if (rv) {
 		fprintf(stderr, "Error: cannot build memory-deny-write-execute filter\n");
@@ -419,29 +429,52 @@ int seccomp_filter_mdwx(bool native) {
 	return 0;
 }
 
+// create namespaces filter
+int seccomp_filter_namespaces(bool native, const char *list) {
+	if (arg_debug)
+		printf("Build restrict-namespaces filter\n");
+
+	const char *command, *filter;
+	if (native) {
+		command = "restrict-namespaces";
+		filter = RUN_SECCOMP_NS;
+	} else {
+		command = "restrict-namespaces.32";
+		filter = RUN_SECCOMP_NS_32;
+	}
+
+	// build the seccomp filter as a regular user
+	int rv = sbox_run(SBOX_USER | SBOX_CAPS_NONE | SBOX_SECCOMP, 4,
+		PATH_FSECCOMP, command, filter, list);
+
+	if (rv) {
+		fprintf(stderr, "Error: cannot build restrict-namespaces filter\n");
+		exit(rv);
+	}
+
+	if (arg_debug)
+		printf("restrict-namespaces filter configured\n");
+
+	return 0;
+}
+
 void seccomp_print_filter(pid_t pid) {
 	EUID_ASSERT();
 
-	// in case the pid is that of a firejail process, use the pid of the first child process
-	pid = switch_to_child(pid);
+	ProcessHandle sandbox = pin_sandbox_process(pid);
 
-	// exit if no permission to join the sandbox
-	check_join_permission(pid);
+	// chroot in the sandbox
+	process_rootfs_chroot(sandbox);
+	unpin_process(sandbox);
+
+	drop_privs(0);
 
 	// find the seccomp list file
-	EUID_ROOT();
-	char *fname;
-	if (asprintf(&fname, "/proc/%d/root%s", pid, RUN_SECCOMP_LIST) == -1)
-		errExit("asprintf");
-
-	struct stat s;
-	if (stat(fname, &s) == -1)
-		goto errexit;
-
-	FILE *fp = fopen(fname, "re");
-	if (!fp)
-		goto errexit;
-	free(fname);
+	FILE *fp = fopen(RUN_SECCOMP_LIST, "re");
+	if (!fp) {
+		printf("Cannot access seccomp filter.\n");
+		exit(1);
+	}
 
 	char buf[MAXBUF];
 	while (fgets(buf, MAXBUF, fp)) {
@@ -450,21 +483,21 @@ void seccomp_print_filter(pid_t pid) {
 		if (ptr)
 			*ptr = '\0';
 
-		if (asprintf(&fname, "/proc/%d/root%s", pid, buf) == -1)
-			errExit("asprintf");
-		printf("FILE: %s\n", fname); fflush(0);
+		printf("FILE: %s\n", buf); fflush(0);
 
-		// read and print the filter - run this as root, the user doesn't have access
-		sbox_run(SBOX_ROOT | SBOX_SECCOMP, 2, PATH_FSEC_PRINT, fname);
-		fflush(0);
+		// read and print the filter
+		pid_t child = fork();
+		if (child < 0)
+			errExit("fork");
+		if (child == 0) {
+			execl(PATH_FSEC_PRINT, PATH_FSEC_PRINT, buf, NULL);
+			errExit("execl");
+		}
+		waitpid(child, NULL, 0);
 
 		printf("\n"); fflush(0);
-		free(fname);
 	}
 	fclose(fp);
-	exit(0);
 
-errexit:
-	printf("Cannot access seccomp filter.\n");
-	exit(1);
+	exit(0);
 }

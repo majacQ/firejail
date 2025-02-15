@@ -16,10 +16,10 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
+whitelist /usr/share/viewnior
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
 
@@ -38,16 +38,16 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 private-bin viewnior
 private-cache
 private-dev
-private-etc alternatives,fonts,machine-id
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
 
-#memory-deny-write-execute - breaks on Arch (see issues #1803 and #1808)
+#memory-deny-write-execute # breaks on Arch (see issues #1803 and #1808)
+restrict-namespaces

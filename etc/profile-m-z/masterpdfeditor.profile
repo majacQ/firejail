@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 include whitelist-var-common.inc
@@ -32,11 +31,11 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 private-cache
 private-dev
-private-etc alternatives,fonts
+private-etc
 private-tmp
 
+restrict-namespaces

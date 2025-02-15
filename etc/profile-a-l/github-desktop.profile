@@ -14,6 +14,8 @@ include globals.local
 # Disabled until someone reported positive feedback
 ignore include disable-xdg.inc
 ignore whitelist ${DOWNLOADS}
+ignore whitelist ${HOME}/.config/Electron
+ignore whitelist ${HOME}/.config/electron*-flag*.conf
 ignore include whitelist-common.inc
 ignore include whitelist-runuser-common.inc
 ignore include whitelist-usr-share-common.inc
@@ -27,14 +29,14 @@ noblacklist ${HOME}/.config/git
 noblacklist ${HOME}/.gitconfig
 noblacklist ${HOME}/.git-credentials
 
-# no3d
+#no3d
 nosound
 
-# private-bin github-desktop
+#private-bin github-desktop
 ?HAS_APPIMAGE: ignore private-dev
-# private-lib
+#private-lib
 
-# memory-deny-write-execute
+#memory-deny-write-execute
 
 # Redirect
-include electron.profile
+include electron-common.profile

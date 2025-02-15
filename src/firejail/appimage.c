@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -21,6 +21,7 @@
 // sudo mount -o loop krita-3.0-x86_64.appimage mnt
 
 #include "firejail.h"
+#include "../include/gcov_wrapper.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
@@ -30,20 +31,59 @@
 
 static char *devloop = NULL;	// device file
 static long unsigned size = 0;	// offset into appimage file
+#define MAXBUF 4096
 
-#ifdef LOOP_CTL_GET_FREE	// test for older kernels; this definition is found in /usr/include/linux/loop.h
-static void err_loop(void) {
-	fprintf(stderr, "Error: cannot configure loopback device\n");
+static void err_loop(char *msg) {
+	fprintf(stderr, "%s\n", msg);
 	exit(1);
 }
-#endif
+
+// return 1 if found
+int appimage_find_profile(const char *archive) {
+	assert(archive);
+	assert(strlen(archive));
+
+	// extract the name of the appimage from a full path
+	// example: archive = /opt/kdenlive-20.12.2-x86_64.appimage
+	const char *arc = strrchr(archive, '/');
+	if (arc)
+		arc++;
+	else
+		arc = archive;
+	if (arg_debug)
+		printf("Looking for a %s profile\n", arc);
+
+	// try to match the name of the archive with the list of programs in /etc/firejail/firecfg.config
+	FILE *fp = fopen(SYSCONFDIR "/firecfg.config", "r");
+	if (!fp) {
+		fprintf(stderr, "Error: cannot find %s, firejail is not correctly installed\n", SYSCONFDIR "/firecfg.config");
+		exit(1);
+	}
+	char buf[MAXBUF];
+	while (fgets(buf, MAXBUF, fp)) {
+		if (*buf == '#')
+			continue;
+		char *ptr = strchr(buf, '\n');
+		if (ptr)
+			*ptr = '\0';
+		char *found = strcasestr(arc, buf);
+		if (found == arc) {
+			fclose(fp);
+			return profile_find_firejail(buf, 1);
+		}
+	}
+
+	fclose(fp);
+	return 0;
+
+}
+
 
 void appimage_set(const char *appimage) {
 	assert(appimage);
 	assert(devloop == NULL);	// don't call this twice!
 	EUID_ASSERT();
 
-#ifdef LOOP_CTL_GET_FREE
 	// open appimage file
 	invalid_filename(appimage, 0); // no globbing
 	int ffd = open(appimage, O_RDONLY|O_CLOEXEC);
@@ -67,29 +107,46 @@ void appimage_set(const char *appimage) {
 
 	// find or allocate a free loop device to use
 	EUID_ROOT();
-	int cfd = open("/dev/loop-control", O_RDWR|O_CLOEXEC);
-	if (cfd == -1)
-		err_loop();
-	int devnr = ioctl(cfd, LOOP_CTL_GET_FREE);
-	if (devnr == -1)
-		err_loop();
+	int cfd; // loop control fd
+	if ((cfd = open("/dev/loop-control", O_RDWR|O_CLOEXEC)) == -1) {
+		sleep(1); // sleep 1 second and try again
+		if ((cfd = open("/dev/loop-control", O_RDWR|O_CLOEXEC)) == -1)
+			err_loop("cannot open /dev/loop-control");
+	}
+
+	int devnr; // loop device number
+	if ((devnr = ioctl(cfd, LOOP_CTL_GET_FREE)) == -1) {
+		sleep(1); // sleep 1 second and try again
+		if ((devnr = ioctl(cfd, LOOP_CTL_GET_FREE)) == -1)
+			err_loop("cannot get a free loop device number");
+	}
 	close(cfd);
 	if (asprintf(&devloop, "/dev/loop%d", devnr) == -1)
 		errExit("asprintf");
 
+	int lfd; // loopback fd
+	if ((lfd = open(devloop, O_RDONLY|O_CLOEXEC)) == -1) {
+		sleep (1); // sleep 1 second and try again
+		if ((lfd = open(devloop, O_RDONLY|O_CLOEXEC)) == -1)
+			err_loop("cannot open loop device");
+	}
+
 	// associate loop device with appimage
-	int lfd = open(devloop, O_RDONLY|O_CLOEXEC);
-	if (lfd == -1)
-		err_loop();
-	if (ioctl(lfd, LOOP_SET_FD, ffd) == -1)
-		err_loop();
+	if (ioctl(lfd, LOOP_SET_FD, ffd) == -1) {
+		sleep(1); // sleep 1 second and try again
+		if (ioctl(lfd, LOOP_SET_FD, ffd) == -1)
+			err_loop("cannot associate loop device with appimage file");
+	}
 
 	if (size) {
 		struct loop_info64 info;
 		memset(&info, 0, sizeof(struct loop_info64));
 		info.lo_offset = size;
-		if (ioctl(lfd,  LOOP_SET_STATUS64, &info) == -1)
-			err_loop();
+		if (ioctl(lfd,  LOOP_SET_STATUS64, &info) == -1) {
+			sleep(1); // sleep 1 second and try again
+			if (ioctl(lfd,  LOOP_SET_STATUS64, &info) == -1)
+				err_loop("cannot set loop status");
+		}
 	}
 	close(lfd);
 	close(ffd);
@@ -109,13 +166,8 @@ void appimage_set(const char *appimage) {
 
 	if (cfg.cwd)
 		env_store_name_val("OWD", cfg.cwd, SETENV);
-#ifdef HAVE_GCOV
+
 	__gcov_flush();
-#endif
-#else
-	fprintf(stderr, "Error: /dev/loop-control interface is not supported by your kernel\n");
-	exit(1);
-#endif
 }
 
 // mount appimage into sandbox file system

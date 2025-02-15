@@ -5,20 +5,23 @@ include gitter.local
 # Persistent global definitions
 include globals.local
 
-noblacklist ${HOME}/.config/autostart
+# To allow the program to autostart, add the following to gitter.local:
+# Warning: This allows the program to easily escape the sandbox.
+#noblacklist ${HOME}/.config/autostart
+#whitelist ${HOME}/.config/autostart
+
 noblacklist ${HOME}/.config/Gitter
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.config/Gitter
 whitelist ${DOWNLOADS}
-whitelist ${HOME}/.config/autostart
 whitelist ${HOME}/.config/Gitter
+whitelist /opt/Gitter
 include whitelist-var-common.inc
 
 caps.drop all
@@ -34,12 +37,11 @@ notv
 nou2f
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
 disable-mnt
 private-bin bash,env,gitter
-private-etc alternatives,ca-certificates,crypto-policies,fonts,pki,pulse,resolv.conf,ssl
-private-opt Gitter
+private-etc @tls-ca
 private-dev
 private-tmp
 
+restrict-namespaces

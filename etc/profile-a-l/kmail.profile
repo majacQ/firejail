@@ -29,18 +29,19 @@ noblacklist ${HOME}/.local/share/kxmlgui5/kmail
 noblacklist ${HOME}/.local/share/kxmlgui5/kmail2
 noblacklist ${HOME}/.local/share/local-mail
 noblacklist ${HOME}/.local/share/notes
+noblacklist ${RUNUSER}/akonadi
 noblacklist /tmp/akonadi-*
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
+include whitelist-run-common.inc
 include whitelist-var-common.inc
 
-# apparmor
+#apparmor
 caps.drop all
 netfilter
 nodvd
@@ -48,16 +49,21 @@ nogroups
 noinput
 nonewprivs
 noroot
-nosound
 notv
 nou2f
 novideo
 protocol unix,inet,inet6,netlink
 # we need to allow chroot, io_getevents, ioprio_set, io_setup, io_submit system calls
 seccomp !chroot,!io_getevents,!io_setup,!io_submit,!ioprio_set
-# tracelog
+#tracelog
 
 private-dev
-# private-tmp - interrupts connection to akonadi, breaks opening of email attachments
+#private-tmp # interrupts connection to akonadi, breaks opening of email attachments
 # writable-run-user is needed for signing and encrypting emails
 writable-run-user
+
+# To harden kmail.profile, add the following lines to kmail.local:
+#dbus-user filter
+#dbus-user.talk org.freedesktop.Notifications
+
+#restrict-namespaces

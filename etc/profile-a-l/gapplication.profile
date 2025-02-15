@@ -7,17 +7,17 @@ include gapplication.local
 include globals.local
 
 blacklist ${RUNUSER}/wayland-*
+blacklist /usr/libexec
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
-include whitelist-common.inc
+#include whitelist-common.inc # see #903
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
@@ -40,7 +40,6 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 x11 none
 
@@ -49,7 +48,7 @@ private
 private-bin gapplication
 private-cache
 private-dev
-private-etc none
+private-etc
 private-tmp
 
 # Add the next line to your gapplication.local to filter D-Bus names.
@@ -71,3 +70,4 @@ dbus-system none
 
 memory-deny-write-execute
 read-only ${HOME}
+restrict-namespaces

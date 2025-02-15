@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -37,16 +36,17 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin gnome-screenshot
 private-dev
-private-etc dconf,fonts,gtk-3.0,localtime,machine-id
+private-etc @x11
 private-tmp
 
 dbus-user filter
 dbus-user.own org.gnome.Screenshot
 dbus-user.talk org.gnome.Shell.Screenshot
 dbus-system none
+
+restrict-namespaces

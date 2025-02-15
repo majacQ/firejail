@@ -15,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -36,10 +35,14 @@ protocol unix,inet,inet6
 # blacklisting of ioprio_set system calls breaks auto-updating of
 # MPD's database when files in music_directory are changed
 seccomp !ioprio_set
-shell none
 
 #private-bin bash,mpd
 private-cache
 private-dev
 private-tmp
 
+dbus-user filter
+dbus-user.talk org.mpris.MediaPlayer2.mpd
+dbus-system none
+
+restrict-namespaces

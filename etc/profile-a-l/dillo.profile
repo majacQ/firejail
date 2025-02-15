@@ -11,7 +11,6 @@ noblacklist ${HOME}/.dillo
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.dillo
@@ -36,3 +35,6 @@ tracelog
 
 private-dev
 private-tmp
+
+deterministic-shutdown
+restrict-namespaces

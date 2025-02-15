@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -19,10 +19,14 @@
  */
 
 #include "../include/common.h"
-#include <fcntl.h>
 #include <ftw.h>
 #include <errno.h>
 #include <pwd.h>
+
+#include <fcntl.h>
+#ifndef O_PATH
+#define O_PATH 010000000
+#endif
 
 #if HAVE_SELINUX
 #include <sys/stat.h>
@@ -55,7 +59,7 @@ static void selinux_relabel_path(const char *path, const char *inside_path) {
 	assert(path);
 	assert(inside_path);
 #if HAVE_SELINUX
-        char procfs_path[64];
+	char procfs_path[64];
 	char *fcon = NULL;
 	int fd;
 	struct stat st;
@@ -69,22 +73,26 @@ static void selinux_relabel_path(const char *path, const char *inside_path) {
 	if (!label_hnd)
 		label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
 
+	if (!label_hnd)
+		errExit("selabel_open");
+
 	/* Open the file as O_PATH, to pin it while we determine and adjust the label */
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+	fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
 	if (fd < 0)
 		return;
 	if (fstat(fd, &st) < 0)
 		goto close;
 
-        if (selabel_lookup_raw(label_hnd, &fcon, inside_path, st.st_mode)  == 0) {
+	if (selabel_lookup_raw(label_hnd, &fcon, inside_path, st.st_mode)  == 0) {
 		sprintf(procfs_path, "/proc/self/fd/%i", fd);
 		if (arg_debug)
 			printf("Relabeling %s as %s (%s)\n", path, inside_path, fcon);
 
-		setfilecon_raw(procfs_path, fcon);
-        }
+		if (setfilecon_raw(procfs_path, fcon) != 0 && arg_debug)
+			printf("Cannot relabel %s: %s\n", path, strerror(errno));
+	}
 	freecon(fcon);
- close:
+close:
 	close(fd);
 #else
 	(void) path;
@@ -192,7 +200,8 @@ static char *proc_pid_to_self(const char *target) {
 
 	// check where /proc/self points to
 	static const char proc_self[] = "/proc/self";
-	if (!(proc_pid = realpath(proc_self, NULL)))
+	proc_pid = realpath(proc_self, NULL);
+	if (proc_pid == NULL)
 		goto done;
 
 	// redirect /proc/PID/xxx -> /proc/self/XXX
@@ -227,7 +236,7 @@ void copy_link(const char *target, const char *linkpath, mode_t mode, uid_t uid,
 	// if the link is already there, don't create it
 	struct stat s;
 	if (lstat(linkpath, &s) == 0)
-	       return;
+		return;
 
 	char *rp = proc_pid_to_self(target);
 	if (rp) {
@@ -268,7 +277,7 @@ static int fs_copydir(const char *infname, const struct stat *st, int ftype, str
 
 	// don't copy it if we already have the file
 	struct stat s;
-	if (stat(outfname, &s) == 0) {
+	if (lstat(outfname, &s) == 0) {
 		if (first)
 			first = 0;
 		else if (!arg_quiet)
@@ -277,11 +286,9 @@ static int fs_copydir(const char *infname, const struct stat *st, int ftype, str
 	}
 
 	// extract mode and ownership
-	if (stat(infname, &s) != 0) {
-		if (!arg_quiet)
-			fprintf(stderr, "Warning fcopy: skipping %s, cannot find inode\n", infname);
+	if (lstat(infname, &s) != 0)
 		goto out;
-	}
+
 	uid_t uid = s.st_uid;
 	gid_t gid = s.st_gid;
 	mode_t mode = s.st_mode;
@@ -340,7 +347,7 @@ static char *check(const char *src) {
 
 errexit:
 	free(rsrc);
-	fprintf(stderr, "Error fcopy: invalid file %s\n", src);
+	fprintf(stderr, "Error fcopy: invalid ownership for file %s\n", src);
 	exit(1);
 }
 
@@ -409,17 +416,18 @@ static void duplicate_link(const char *src, const char *dest, struct stat *s) {
 	free(rdest);
 }
 
+static const char *const usage_str =
+	"Usage: fcopy [--follow-link] src dest\n"
+	"\n"
+	"Copy SRC to DEST/SRC. SRC may be a file, directory, or symbolic link.\n"
+	"If SRC is a directory it is copied recursively.  If it is a symlink,\n"
+	"the link itself is duplicated, unless --follow-link is given,\n"
+	"in which case the destination of the link is copied.\n"
+	"DEST must already exist and must be a directory.\n";
 
 static void usage(void) {
-	fputs("Usage: fcopy [--follow-link] src dest\n"
-		"\n"
-		"Copy SRC to DEST/SRC. SRC may be a file, directory, or symbolic link.\n"
-		"If SRC is a directory it is copied recursively.  If it is a symlink,\n"
-		"the link itself is duplicated, unless --follow-link is given,\n"
-		"in which case the destination of the link is copied.\n"
-		"DEST must already exist and must be a directory.\n", stderr);
+	fputs(usage_str, stderr);
 }
-
 
 int main(int argc, char **argv) {
 #if 0
@@ -463,18 +471,12 @@ int main(int argc, char **argv) {
 	size_t len = strlen(src);
 	while (len > 1 && src[len - 1] == '/')
 		src[--len] = '\0';
-	if (strcspn(src, "\\*&!?\"'<>%^(){}[];,") != len) {
-		fprintf(stderr, "Error fcopy: invalid source file name %s\n", src);
-		exit(1);
-	}
+	reject_meta_chars(src, 0);
 
 	len = strlen(dest);
 	while (len > 1 && dest[len - 1] == '/')
 		dest[--len] = '\0';
-	if (strcspn(dest, "\\*&!?\"'<>%^(){}[];,~") != len) {
-		fprintf(stderr, "Error fcopy: invalid dest file name %s\n", dest);
-		exit(1);
-	}
+	reject_meta_chars(dest, 0);
 
 	// the destination should be a directory;
 	struct stat s;

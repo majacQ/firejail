@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -34,7 +34,7 @@ void sysfiles_setup(const char *file) {
 	assert(file);
 
 	if (files_cnt >= MAX_TEST_FILES) {
-		fprintf(stderr, "Error: maximum number of system test files exceded\n");
+		fprintf(stderr, "Error: maximum number of system test files exceeded\n");
 		exit(1);
 	}
 

@@ -6,11 +6,13 @@ include rtv.local
 # Persistent global definitions
 include globals.local
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}/wayland-*
 
 noblacklist ${HOME}/.config/rtv
 noblacklist ${HOME}/.local/share/rtv
+
+# Allow /bin/sh (blacklisted by disable-shell.inc)
+include allow-bin-sh.inc
 
 # Allow python (blacklisted by disable-interpreters.inc)
 include allow-python2.inc
@@ -24,8 +26,8 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
+include disable-x11.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.config/rtv
@@ -50,14 +52,15 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
-private-bin python*,rtv,sh,xdg-settings
+private-bin less,python*,rtv,sh,xdg-settings
 private-cache
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,mime.types,nsswitch.conf,pki,protocols,resolv.conf,rpc,services,ssl,terminfo,xdg
+private-etc @tls-ca,@x11,host.conf,mailcap,mime.types,rpc,services,terminfo
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

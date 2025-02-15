@@ -10,7 +10,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -23,7 +22,7 @@ include whitelist-var-common.inc
 
 apparmor
 caps.drop all
-# net none - breaks application on older versions
+#net none # breaks application on older versions
 no3d
 nodvd
 nogroups
@@ -37,14 +36,13 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin dconf-editor
 private-cache
 private-dev
-private-etc alternatives,dconf,fonts,gtk-3.0,machine-id
+private-etc @x11
 private-lib
 private-tmp
 
@@ -52,3 +50,5 @@ dbus-user filter
 dbus-user.own ca.desrt.dconf-editor
 dbus-user.talk ca.desrt.dconf
 dbus-system none
+
+restrict-namespaces

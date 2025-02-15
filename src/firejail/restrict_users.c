@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -21,7 +21,6 @@
 #include "../include/firejail_user.h"
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <linux/limits.h>
 #include <fnmatch.h>
 #include <glob.h>
 #include <dirent.h>
@@ -104,12 +103,8 @@ static void sanitize_home(void) {
 	selinux_relabel_path(cfg.homedir, cfg.homedir);
 
 	// bring back real user home directory
-	char *proc;
-	if (asprintf(&proc, "/proc/self/fd/%d", fd) == -1)
-		errExit("asprintf");
-	if (mount(proc, cfg.homedir, NULL, MS_BIND|MS_REC, NULL) < 0)
+	if (bind_mount_fd_to_path(fd, cfg.homedir))
 		errExit("mount bind");
-	free(proc);
 	close(fd);
 
 	if (!arg_private)
@@ -154,12 +149,8 @@ static void sanitize_run(void) {
 	selinux_relabel_path(runuser, runuser);
 
 	// bring back real run/user/$UID directory
-	char *proc;
-	if (asprintf(&proc, "/proc/self/fd/%d", fd) == -1)
-		errExit("asprintf");
-	if (mount(proc, runuser, NULL, MS_BIND|MS_REC, NULL) < 0)
+	if (bind_mount_fd_to_path(fd, runuser))
 		errExit("mount bind");
-	free(proc);
 	close(fd);
 
 	fs_logger2("whitelist", runuser);
@@ -219,9 +210,9 @@ static void sanitize_passwd(void) {
 			goto errout;
 
 		// process uid
-		int uid;
+		int uid = -1;
 		int rv = sscanf(ptr, "%d:", &uid);
-		if (rv == 0 || uid < 0)
+		if (rv != 1 || uid < 0)
 			goto errout;
 		assert(uid_min);
 		if (uid < uid_min || uid == 65534) { // on Debian platforms user nobody is 65534
@@ -243,9 +234,14 @@ static void sanitize_passwd(void) {
 	SET_PERMS_STREAM(fpout, 0, 0, 0644);
 	fclose(fpout);
 
-	// mount-bind tne new password file
+	// mount-bind the new password file
 	if (mount(RUN_PASSWD_FILE, "/etc/passwd", "none", MS_BIND, "mode=400,gid=0") < 0)
 		errExit("mount");
+
+	// blacklist RUN_PASSWD_FILE
+	if (mount(RUN_RO_FILE, RUN_PASSWD_FILE, "none", MS_BIND, "mode=400,gid=0") < 0)
+		errExit("mount");
+
 	fs_logger("create /etc/passwd");
 
 	return;
@@ -353,9 +349,9 @@ static void sanitize_group(void) {
 			goto errout;
 
 		// process uid
-		int gid;
+		int gid = -1;
 		int rv = sscanf(ptr, "%d:", &gid);
-		if (rv == 0 || gid < 0)
+		if (rv != 1 || gid < 0)
 			goto errout;
 		assert(gid_min);
 		if (gid < gid_min || gid == 65534) { // on Debian platforms 65534 is group nogroup
@@ -373,9 +369,14 @@ static void sanitize_group(void) {
 	SET_PERMS_STREAM(fpout, 0, 0, 0644);
 	fclose(fpout);
 
-	// mount-bind tne new group file
+	// mount-bind the new group file
 	if (mount(RUN_GROUP_FILE, "/etc/group", "none", MS_BIND, "mode=400,gid=0") < 0)
 		errExit("mount");
+
+	// blacklist RUN_GROUP_FILE
+	if (mount(RUN_RO_FILE, RUN_GROUP_FILE, "none", MS_BIND, "mode=400,gid=0") < 0)
+		errExit("mount");
+
 	fs_logger("create /etc/group");
 
 	return;

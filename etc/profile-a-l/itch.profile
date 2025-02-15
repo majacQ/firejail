@@ -14,7 +14,6 @@ noblacklist ${HOME}/.config/itch
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.itch
@@ -35,9 +34,9 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
 private-dev
 private-tmp
 
 noexec /tmp
+restrict-namespaces

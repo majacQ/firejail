@@ -11,7 +11,6 @@ noblacklist ${HOME}/.surf
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.surf
@@ -29,12 +28,12 @@ notv
 nou2f
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin bash,curl,dmenu,ls,printf,sed,sh,sleep,st,stterm,surf,xargs,xprop
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,fonts,group,hosts,machine-id,passwd,pki,resolv.conf,ssl
+private-etc @tls-ca
 private-tmp
 
+restrict-namespaces

@@ -17,7 +17,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -46,21 +45,22 @@ nosound
 notv
 nou2f
 novideo
-protocol unix,inet,inet6
+protocol unix,inet,inet6,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin neochat
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,dbus-1,fonts,host.conf,hostname,hosts,kde4rc,kde5rc,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,machine-id,mime.types,nsswitch.conf,pango,pki,protocols,resolv.conf,rpc,services,ssl,Trolltech.conf,X11,xdg
+private-etc @tls-ca,@x11,dbus-1,host.conf,mime.types,rpc,services
 private-tmp
 
 dbus-user filter
 dbus-user.own org.kde.neochat
 dbus-user.talk org.freedesktop.Notifications
-dbus-user.talk org.kde.StatusNotifierWatcher
+?ALLOW_TRAY: dbus-user.talk org.kde.StatusNotifierWatcher
 dbus-user.talk org.kde.kwalletd5
 dbus-system none
+
+restrict-namespaces

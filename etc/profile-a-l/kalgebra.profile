@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -36,15 +35,16 @@ nou2f
 novideo
 protocol unix,netlink
 seccomp !chroot
-shell none
-# tracelog
+#tracelog
 
 disable-mnt
 private-bin kalgebra,kalgebramobile
 private-cache
 private-dev
-private-etc fonts,machine-id
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
+
+#restrict-namespaces

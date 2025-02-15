@@ -12,22 +12,28 @@ noblacklist ${HOME}/.config/nano
 noblacklist ${HOME}/.emacs
 noblacklist ${HOME}/.emacs.d
 noblacklist ${HOME}/.gitconfig
+noblacklist ${HOME}/.git-credential-cache
 noblacklist ${HOME}/.git-credentials
 noblacklist ${HOME}/.gnupg
 noblacklist ${HOME}/.nanorc
 noblacklist ${HOME}/.vim
 noblacklist ${HOME}/.viminfo
 
+# Allow environment variables (rmenv'ed by disable-common.inc)
+ignore rmenv GH_TOKEN
+ignore rmenv GITHUB_TOKEN
+ignore rmenv GH_ENTERPRISE_TOKEN
+ignore rmenv GITHUB_ENTERPRISE_TOKEN
+
 # Allow ssh (blacklisted by disable-common.inc)
 include allow-ssh.inc
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}/wayland-*
 
 include disable-common.inc
 include disable-exec.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
+include disable-x11.inc
 
 whitelist /usr/share/git
 whitelist /usr/share/git-core
@@ -54,9 +60,9 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-cache
 private-dev
 
 memory-deny-write-execute
+restrict-namespaces

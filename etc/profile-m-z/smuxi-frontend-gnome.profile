@@ -14,7 +14,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -42,15 +41,16 @@ notv
 nou2f
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin bash,mono,mono-sgen,sh,smuxi-frontend-gnome
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,ca-certificates,crypto-policies,fonts,hostname,hosts,ld.so.cache,ld.so.conf,machine-id,mono,passwd,pki,pulse,resolv.conf,selinux,ssl,xdg
+private-etc @tls-ca,@x11,mono
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
 # This file is part of Firejail project
-# Copyright (C) 2014-2021 Firejail Authors
+# Copyright (C) 2014-2025 Firejail Authors
 # License GPL v2
 
 set timeout 10
@@ -31,9 +31,14 @@ after 100
 send -- "fnetfilter test1.net,33\r"
 expect {
 	timeout {puts "TESTING ERROR 4\n";exit}
-	"cannot open test1.net,33"
+	"Error:"
+}
+expect {
+	timeout {puts "TESTING ERROR 5\n";exit}
+	"is an invalid filename"
 }
 after 100
+
 send -- "rm outfile\r"
 after 100
 

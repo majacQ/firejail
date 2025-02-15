@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.config/2048-qt
@@ -37,8 +36,9 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 
 disable-mnt
 private-dev
 private-tmp
+
+restrict-namespaces

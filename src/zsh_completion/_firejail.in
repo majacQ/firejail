@@ -62,6 +62,9 @@ _firejail_args=(
     '--tree[print a tree of all sandboxed processes]'
     '--version[print program version and exit]'
 
+    '--ids-check[verify file system]'
+    '--ids-init[initialize IDS database]'
+
     '--debug[print sandbox debug messages]'
     '--debug-blacklists[debug blacklisting]'
     '--debug-caps[print all recognized capabilities]'
@@ -88,9 +91,9 @@ _firejail_args=(
     '--caps.drop=all[drop all capabilities]'
     '*--caps.drop=-[drop capabilities: all|cap1,cap2,...]: :_caps'
     '*--caps.keep=-[keep capabilities: cap1,cap2,...]: :_caps'
-    '--cgroup=-[place the sandbox in the specified control group]: :'
     '--cpu=-[set cpu affinity]: :->cpus'
     "--deterministic-exit-code[always exit with first child's status code]"
+    '--deterministic-shutdown[terminate orphan processes]'
     '*--dns=-[set DNS server]: :'
     '*--env=-[set environment variable]: :'
     '--hostname=-[set sandbox hostname]: :'
@@ -100,8 +103,18 @@ _firejail_args=(
     '--join-or-start=-[join the sandbox or start a new one name|pid]: :_all_firejails'
     '--keep-config-pulse[disable automatic ~/.config/pulse init]'
     '--keep-dev-shm[/dev/shm directory is untouched (even with --private-dev)]'
+    '--keep-fd[inherit open file descriptors to sandbox]: :'
+    '--keep-shell-rc[do not copy shell rc files from /etc/skel]'
     '--keep-var-tmp[/var/tmp directory is untouched]'
-    '--machine-id[preserve /etc/machine-id]'
+#ifdef HAVE_LANDLOCK
+    '--landlock.enforce[enforce the Landlock ruleset]'
+    '--landlock.fs.read=-[add a read access rule for the path to the Landlock ruleset]: :_files'
+    '--landlock.fs.write=-[add a write access rule for the path to the Landlock ruleset]: :_files'
+    '--landlock.fs.makeipc=-[add an access rule for the path to the Landlock ruleset for creating named pipes and sockets]: :_files'
+    '--landlock.fs.makedev=-[add an access rule for the path to the Landlock ruleset for creating block/char devices]: :_files'
+    '--landlock.fs.execute=-[add an execute access rule for the path to the Landlock ruleset]: :_files'
+#endif
+    '--machine-id[spoof /etc/machine-id with a random id]'
     '--memory-deny-write-execute[seccomp filter to block attempts to create memory mappings that are both writable and executable]'
     '*--mkdir=-[create a directory]:'
     '*--mkfile=-[create a file]:'
@@ -111,7 +124,6 @@ _firejail_args=(
     # many would enjoy getting a list from -20..20
     '--nice=-[set nice value]: :(1 10 15 20)'
     '--no3d[disable 3D hardware acceleration]'
-    '--noautopulse[disable automatic ~/.config/pulse init]'
     '--noblacklist=-[disable blacklist for file or directory]: :_files'
     '--nodbus[disable D-Bus access]'
     '--nodvd[disable DVD and audio CD devices]'
@@ -119,7 +131,9 @@ _firejail_args=(
     '--nogroups[disable supplementary groups]'
     '--noinput[disable input devices]'
     '--nonewprivs[sets the NO_NEW_PRIVS prctl]'
+    '--noprinters[disable printers]'
     '--nosound[disable sound system]'
+    '--notpm[disable TPM devices]'
     '--nou2f[disable U2F devices]'
     '--novideo[disable video devices]'
     '--private[temporary home directory]'
@@ -136,6 +150,8 @@ _firejail_args=(
     "--quiet[turn off Firejail's output.]"
     '*--read-only=-[set directory or file read-only]: :_files'
     '*--read-write=-[set directory or file read-write]: :_files'
+    '--restrict-namespaces[seccomp filter that blocks attempts to create new namespaces]'
+    '--restrict-namespaces=-[seccomp filter that blocks attempts to create specified namespaces]: :'
     "--rlimit-as=-[set the maximum size of the process's virtual memory (address space) in bytes]: :"
     '--rlimit-cpu=-[set the maximum CPU time in seconds]: :'
     '--rlimit-fsize=-[set the maximum file size that can be created by a process]: :'
@@ -152,19 +168,19 @@ _firejail_args=(
     '*--seccomp.32.keep=-[enable seccomp filter, and whitelist the 32 bit syscalls specified by the command]: :'
     # FIXME: Add errnos
     '--seccomp-error-action=-[change error code, kill process or log the attempt]: :(kill log)'
-    '--shell=none[run the program directly without a user shell]'
-    '--shell=-[set default user shell]: :_values $(cat /etc/shells)'
     '--timeout=-[kill the sandbox automatically after the time has elapsed]: :'
     #'(--tracelog)--trace[trace open, access and connect system calls]'
     '(--tracelog)--trace=-[trace open, access and connect system calls]: :_files'
     '(--trace)--tracelog[add a syslog message for every access to files or directories blacklisted by the security profile]'
     '(--private-etc)--writable-etc[/etc directory is mounted read-write]'
+    '--tab[enable shell tab completion in sandboxes using private or whitelisted home directories]'
     '--writable-run-user[allow access to /run/user/$UID/systemd and /run/user/$UID/gnupg]'
     '--writable-var[/var directory is mounted read-write]'
     '--writable-var-log[use the real /var/log directory, not a clone]'
 
 #ifdef HAVE_APPARMOR
-    '--apparmor[enable AppArmor confinement]'
+    '--apparmor[enable AppArmor confinement with the default profile]'
+    '--apparmor=-[enable AppArmor confinement with a custom profile]: :'
     '--apparmor.print=-[print apparmor status name|pid]:firejail:_all_firejails'
 #endif
 
@@ -198,10 +214,6 @@ _firejail_args=(
     '--ls=-[list files in sandbox container name|pid]: :_all_firejails'
 #endif
 
-#ifdef HAVE_FIRETUNNEL
-    '--tunnel=-[connect the sandbox to a tunnel created by firetunnel utility]: :'
-#endif
-
 #ifdef HAVE_NETWORK
     '--bandwidth=-[set bandwidth limits name|pid]: :_all_firejails'
     '--defaultgw=[configure default gateway]: :'
@@ -215,7 +227,7 @@ _firejail_args=(
     '--netfilter.print=-[print the firewall name|pid]: :_all_firejails'
     '--netfilter6=-[enable IPv6 firewall]: :'
     '--netfilter6.print=-[print the IPv6 firewall name|pid]: :_all_firejails'
-    '--netmask=-[define a network mask when dealing with unconfigured parrent interfaces]: :'
+    '--netmask=-[define a network mask when dealing with unconfigured parent interfaces]: :'
     '--netns=-[Run the program in a named, persistent network namespace]: :'
     '--netstats[monitor network statistics]'
     '--interface=-[move interface in sandbox]: :'
@@ -251,10 +263,8 @@ _firejail_args=(
     '*--tmpfs=-[mount a tmpfs filesystem on directory dirname]: :_files -/'
 #endif
 
-#ifdef HAVE_WHITELIST
     '*--nowhitelist=-[disable whitelist for file or directory]: :_files'
     '*--whitelist=-[whitelist directory or file]: :_files'
-#endif
 
 #ifdef HAVE_X11
     '--x11[enable X11 sandboxing. The software checks first if Xpra is installed, then it checks if Xephyr is installed. If all fails, it will attempt to use X11 security extension]'

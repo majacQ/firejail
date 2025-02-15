@@ -14,7 +14,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -43,15 +42,16 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin warmux
 private-cache
 private-dev
-private-etc ca-certificates,crypto-policies,host.conf,hostname,hosts,machine-id,nsswitch.conf,pki,protocols,resolv.conf,rpc,services,ssl
+private-etc @tls-ca,host.conf,rpc,services
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

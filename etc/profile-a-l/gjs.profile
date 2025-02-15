@@ -19,7 +19,6 @@ include allow-gjs.inc
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 include whitelist-runuser-common.inc
@@ -37,10 +36,11 @@ notv
 nou2f
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
-# private-bin gjs,gnome-books,gnome-documents,gnome-maps,gnome-photos,gnome-weather
+#private-bin gjs,gnome-books,gnome-documents,gnome-maps,gnome-photos,gnome-weather
 private-dev
-# private-etc alternatives,ca-certificates,crypto-policies,fonts,pki,ssl
+#private-etc alternatives,ca-certificates,crypto-policies,fonts,pki,ssl
 private-tmp
+
+restrict-namespaces

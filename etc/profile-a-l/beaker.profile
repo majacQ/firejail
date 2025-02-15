@@ -13,7 +13,6 @@ ignore include whitelist-usr-share-common.inc
 ignore include whitelist-var-common.inc
 ignore nou2f
 ignore novideo
-ignore shell none
 ignore disable-mnt
 ignore private-cache
 ignore private-dev
@@ -25,4 +24,4 @@ mkdir ${HOME}/.config/Beaker Browser
 whitelist ${HOME}/.config/Beaker Browser
 
 # Redirect
-include electron.profile
+include electron-common.profile

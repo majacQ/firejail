@@ -7,21 +7,27 @@ include globals.local
 
 noblacklist ${HOME}/.TelegramDesktop
 noblacklist ${HOME}/.local/share/TelegramDesktop
+noblacklist ${HOME}/.local/share/telegram-desktop
+
+# Allow opening hyperlinks
+include allow-bin-sh.inc
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.TelegramDesktop
 mkdir ${HOME}/.local/share/TelegramDesktop
+mkdir ${HOME}/.local/share/telegram-desktop
 whitelist ${HOME}/.TelegramDesktop
 whitelist ${HOME}/.local/share/TelegramDesktop
+whitelist ${HOME}/.local/share/telegram-desktop
 whitelist ${DOWNLOADS}
+whitelist /usr/share/TelegramDesktop
 include whitelist-common.inc
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
@@ -38,19 +44,20 @@ notv
 protocol unix,inet,inet6,netlink
 seccomp
 seccomp.block-secondary
-shell none
-tracelog
 
 disable-mnt
-#private-bin telegram,Telegram,telegram-desktop
+private-bin Telegram,bash,sh,telegram,telegram-desktop,xdg-open
 private-cache
 private-dev
-private-etc alsa,alternatives,ca-certificates,crypto-policies,fonts,group,ld.so.cache,localtime,machine-id,os-release,passwd,pki,pulse,resolv.conf,ssl,xdg
+private-etc @tls-ca,@x11,os-release
 private-tmp
 
 dbus-user filter
+dbus-user.own org.telegram.desktop.*
 dbus-user.talk org.freedesktop.Notifications
-dbus-user.talk org.kde.StatusNotifierWatcher
+?ALLOW_TRAY: dbus-user.talk org.kde.StatusNotifierWatcher
 dbus-user.talk org.gnome.Mutter.IdleMonitor
 dbus-user.talk org.freedesktop.ScreenSaver
 dbus-system none
+
+restrict-namespaces

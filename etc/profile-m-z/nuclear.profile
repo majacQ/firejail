@@ -14,12 +14,12 @@ include disable-shell.inc
 
 mkdir ${HOME}/.config/nuclear
 whitelist ${HOME}/.config/nuclear
+whitelist /opt/nuclear
 
 no3d
 
-# private-bin nuclear
-private-etc alsa,alternatives,asound.conf,ca-certificates,crypto-policies,fonts,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,mime.types,nsswitch.conf,pki,pulse,resolv.conf,selinux,ssl,X11,xdg
-private-opt nuclear
+#private-bin nuclear
+private-etc @tls-ca,@x11,host.conf,mime.types
 
 # Redirect
-include electron.profile
+include electron-common.profile

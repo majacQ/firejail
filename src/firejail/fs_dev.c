@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -20,7 +20,6 @@
 #include "firejail.h"
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <linux/limits.h>
 #include <glob.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -40,6 +39,7 @@ typedef enum {
 	DEV_VIDEO,
 	DEV_TV,
 	DEV_DVD,
+	DEV_TPM,
 	DEV_U2F,
 	DEV_INPUT
 } DEV_TYPE;
@@ -53,7 +53,8 @@ typedef struct {
 
 static DevEntry dev[] = {
 	{"/dev/snd", RUN_DEV_DIR "/snd", DEV_SOUND},	// sound device
-	{"/dev/dri", RUN_DEV_DIR "/dri", DEV_3D},		// 3d device
+	{"/dev/dri", RUN_DEV_DIR "/dri", DEV_3D},		// 3d devices
+	{"/dev/kfd", RUN_DEV_DIR "/kfd", DEV_3D},
 	{"/dev/nvidia0", RUN_DEV_DIR "/nvidia0", DEV_3D},
 	{"/dev/nvidia1", RUN_DEV_DIR "/nvidia1", DEV_3D},
 	{"/dev/nvidia2", RUN_DEV_DIR "/nvidia2", DEV_3D},
@@ -79,6 +80,12 @@ static DevEntry dev[] = {
 	{"/dev/video9", RUN_DEV_DIR "/video9", DEV_VIDEO},
 	{"/dev/dvb", RUN_DEV_DIR "/dvb", DEV_TV}, // DVB (Digital Video Broadcasting) - TV device
 	{"/dev/sr0", RUN_DEV_DIR "/sr0", DEV_DVD}, // for DVD and audio CD players
+	{"/dev/tpm0", RUN_DEV_DIR "/tpm0", DEV_TPM}, // TPM (Trusted Platform Module) devices
+	{"/dev/tpm1", RUN_DEV_DIR "/tpm1", DEV_TPM},
+	{"/dev/tpm2", RUN_DEV_DIR "/tpm2", DEV_TPM},
+	{"/dev/tpm3", RUN_DEV_DIR "/tpm3", DEV_TPM},
+	{"/dev/tpm4", RUN_DEV_DIR "/tpm4", DEV_TPM},
+	{"/dev/tpm5", RUN_DEV_DIR "/tpm5", DEV_TPM},
 	{"/dev/hidraw0", RUN_DEV_DIR "/hidraw0", DEV_U2F},
 	{"/dev/hidraw1", RUN_DEV_DIR "/hidraw1", DEV_U2F},
 	{"/dev/hidraw2", RUN_DEV_DIR "/hidraw2", DEV_U2F},
@@ -105,6 +112,7 @@ static void deventry_mount(void) {
 			    (dev[i].type == DEV_VIDEO && arg_novideo == 0) ||
 			    (dev[i].type == DEV_TV && arg_notv == 0) ||
 			    (dev[i].type == DEV_DVD && arg_nodvd == 0) ||
+			    (dev[i].type == DEV_TPM && arg_notpm == 0) ||
 			    (dev[i].type == DEV_U2F && arg_nou2f == 0) ||
 			    (dev[i].type == DEV_INPUT && arg_noinput == 0)) {
 
@@ -178,7 +186,6 @@ static void mount_dev_shm(void) {
 	int rv = mount(RUN_DEV_DIR "/shm", "/dev/shm", "none", MS_BIND, "mode=01777,gid=0");
 	if (rv == -1) {
 		fwarning("cannot mount the old /dev/shm in private-dev\n");
-		dbg_test_dir(RUN_DEV_DIR "/shm");
 		empty_dev_shm();
 		return;
 	}
@@ -187,8 +194,10 @@ static void mount_dev_shm(void) {
 static void process_dev_shm(void) {
 	// Jack audio keeps an Unix socket under (/dev/shm/jack_default_1000_0 or /dev/shm/jack/...)
 	// looking for jack socket
+	EUID_USER();
 	glob_t globbuf;
 	int globerr = glob(RUN_DEV_DIR "/shm/jack*", GLOB_NOSORT, NULL, &globbuf);
+	EUID_ROOT();
 	if (globerr && !arg_keep_dev_shm) {
 		empty_dev_shm();
 		return;
@@ -328,8 +337,10 @@ void fs_dev_disable_sound(void) {
 	}
 
 	// disable all jack sockets in /dev/shm
+	EUID_USER();
 	glob_t globbuf;
 	int globerr = glob("/dev/shm/jack*", GLOB_NOSORT, NULL, &globbuf);
+	EUID_ROOT();
 	if (globerr)
 		return;
 
@@ -376,6 +387,15 @@ void fs_dev_disable_dvd(void) {
 	int i = 0;
 	while (dev[i].dev_fname != NULL) {
 		if (dev[i].type == DEV_DVD)
+			disable_file_or_dir(dev[i].dev_fname);
+		i++;
+	}
+}
+
+void fs_dev_disable_tpm(void) {
+	int i = 0;
+	while (dev[i].dev_fname != NULL) {
+		if (dev[i].type == DEV_TPM)
 			disable_file_or_dir(dev[i].dev_fname);
 		i++;
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -20,13 +20,14 @@
 
 #include "fbuilder.h"
 
+#if 0
 void build_seccomp(const char *fname, FILE *fp) {
 	assert(fname);
 	assert(fp);
 
 	FILE *fp2 = fopen(fname, "r");
 	if (!fp2) {
-		fprintf(stderr, "Error: cannot open %s\n", fname);
+		fprintf(stderr, "Error fbuilder: cannot open %s\n", fname);
 		exit(1);
 	}
 
@@ -53,7 +54,7 @@ void build_seccomp(const char *fname, FILE *fp) {
 		}
 		else if (line == 2) {
 			if (*buf != '-') {
-				fprintf(stderr, "Error: invalid strace output\n%s\n", buf);
+				fprintf(stderr, "Error fbuilder: invalid strace output\n%s\n", buf);
 				exit(1);
 			}
 		}
@@ -78,6 +79,7 @@ void build_seccomp(const char *fname, FILE *fp) {
 
 	fclose(fp2);
 }
+#endif
 
 //***************************************
 // protocol
@@ -94,7 +96,7 @@ static void process_protocol(const char *fname) {
 	// process trace file
 	FILE *fp = fopen(fname, "r");
 	if (!fp) {
-		fprintf(stderr, "Error: cannot open %s\n", fname);
+		fprintf(stderr, "Error fbuilder: cannot open %s\n", fname);
 		exit(1);
 	}
 
@@ -188,7 +190,7 @@ void build_protocol(const char *fname, FILE *fp) {
 	if (net == 0)
 		fprintf(fp, "net none\n");
 	else {
-		fprintf(fp, "# net eth0\n");
+		fprintf(fp, "#net eth0\n");
 		fprintf(fp, "netfilter\n");
 	}
 }

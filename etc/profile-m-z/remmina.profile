@@ -1,5 +1,5 @@
 # Firejail profile for remmina
-# Description: GTK+ Remote Desktop Client
+# Description: GTK Remote Desktop Client
 # This file is overwritten after every install/update
 # Persistent local customizations
 include remmina.local
@@ -13,11 +13,13 @@ noblacklist ${HOME}/.local/share/remmina
 # Allow ssh (blacklisted by disable-common.inc)
 include allow-ssh.inc
 
+# Allow python (blacklisted by disable-interpreters.inc)
+include allow-python3.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -35,9 +37,9 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-cache
 private-dev
 private-tmp
 
+restrict-namespaces

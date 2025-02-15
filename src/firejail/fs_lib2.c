@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -36,6 +36,7 @@ typedef struct liblist_t {
 	int len;
 } LibList;
 
+#ifdef HAVE_PRIVATE_LIB
 static LibList libc_list[] = {
 	{ "libselinux.so.", 0 },
 	{ "libpcre2-8.so.", 0 },
@@ -143,7 +144,7 @@ static void fdir(void) {
 		NULL,
 	};
 
-	// need to parse as root user, unprivileged users have no read permission on executables
+	// need to parse as root user, unprivileged users have no read permission on some of these binaries
 	int i;
 	for (i = 0; fbin[i]; i++)
 		fslib_mount_libs(fbin[i], 0);
@@ -153,7 +154,9 @@ void fslib_install_firejail(void) {
 	timetrace_start();
 	// bring in firejail executable libraries, in case we are redirected here
 	// by a firejail symlink from /usr/local/bin/firejail
-	fslib_mount_libs(PATH_FIREJAIL, 1); // parse as user
+	// fldd might have no read permission on the firejail executable
+	// parse as root in order to support these setups
+	fslib_mount_libs(PATH_FIREJAIL, 0);
 
 	// bring in firejail directory
 	fdir();
@@ -354,3 +357,4 @@ void fslib_install_system(void) {
 		ptr++;
 	}
 }
+#endif

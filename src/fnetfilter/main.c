@@ -1,5 +1,5 @@
- /*
- * Copyright (C) 2014-2021 Firejail Authors
+/*
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -45,9 +45,12 @@ static char *default_filter =
 "-A OUTPUT -p tcp --dport 3479 -j DROP\n"
 "COMMIT\n";
 
+static const char *const usage_str =
+	"Usage:\n"
+	"\tfnetfilter netfilter-command destination-file\n";
+
 static void usage(void) {
-	printf("Usage:\n");
-	printf("\tfnetfilter netfilter-command destination-file\n");
+	puts(usage_str);
 }
 
 static void err_exit_cannot_open_file(const char *fname) {
@@ -187,10 +190,9 @@ printf("\n");
 	char *command = (argc == 3)? argv[1]: NULL;
 //printf("command %s\n", command);
 //printf("destfile %s\n", destfile);
+
 	// destfile is a real filename
-	int len = strlen(destfile);
-	if (strcspn(destfile, "\\&!?\"'<>%^(){};,*[]") != (size_t)len)
-		err_exit_cannot_open_file(destfile);
+	reject_meta_chars(destfile, 0);
 
 	// handle default config (command = NULL, destfile)
 	if (command == NULL) {

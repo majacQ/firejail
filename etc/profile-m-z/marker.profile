@@ -1,5 +1,5 @@
 # Firejail profile for marker
-# Description: Marker is a markdown editor for Linux made with Gtk+-3.0
+# Description: Marker is a markdown editor for Linux made with GTK
 # This file is overwritten after every install/update
 # Persistent local customizations
 include marker.local
@@ -20,11 +20,11 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
+whitelist /usr/libexec/webkit2gtk-4.0
 whitelist /usr/share/com.github.fabiocolacio.marker
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
@@ -48,16 +48,17 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 private-bin marker,python3*
 private-cache
 private-dev
-private-etc alternatives,dconfgtk-3.0,fonts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,pango,X11
+private-etc @x11
 private-tmp
 
 dbus-user filter
 dbus-user.own com.github.fabiocolacio.marker
 dbus-user.talk ca.desrt.dconf
 dbus-system none
+
+restrict-namespaces

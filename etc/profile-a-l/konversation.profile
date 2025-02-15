@@ -16,11 +16,11 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
+include whitelist-run-common.inc
 include whitelist-var-common.inc
 
 caps.drop all
@@ -35,7 +35,6 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 private-bin kbuildsycoca4,konversation
@@ -43,4 +42,5 @@ private-cache
 private-dev
 private-tmp
 
-# memory-deny-write-execute
+#memory-deny-write-execute
+restrict-namespaces

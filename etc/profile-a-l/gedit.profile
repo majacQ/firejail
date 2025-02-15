@@ -13,19 +13,18 @@ noblacklist ${HOME}/.config/gedit
 include allow-common-devel.inc
 
 include disable-common.inc
-# include disable-devel.inc
+#include disable-devel.inc
 include disable-exec.inc
-# include disable-interpreters.inc
-include disable-passwdmgr.inc
+#include disable-interpreters.inc
 include disable-programs.inc
 
 include whitelist-runuser-common.inc
 include whitelist-var-common.inc
 
-# apparmor - makes settings immutable
+#apparmor # makes settings immutable
 caps.drop all
 machine-id
-# net none - makes settings immutable
+#net none # makes settings immutable
 no3d
 nodvd
 nogroups
@@ -39,15 +38,16 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
-# private-bin gedit
+#private-bin gedit
 private-dev
 # private-lib breaks python plugins - add the next line to your gedit.local if you don't use them.
 #private-lib aspell,gconv,gedit,libgspell-1.so.*,libgtksourceview-*,libpeas-gtk-1.0.so.*,libreadline.so.*,libtinfo.so.*
 private-tmp
 
 # makes settings immutable
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
+
+restrict-namespaces

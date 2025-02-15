@@ -12,7 +12,6 @@ noblacklist ${HOME}/.netrc
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -29,7 +28,8 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 #private-bin bash,chmod,fetchmail,procmail
 private-dev
+
+restrict-namespaces

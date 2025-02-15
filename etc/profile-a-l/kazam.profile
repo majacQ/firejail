@@ -21,7 +21,6 @@ include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
 include disable-programs.inc
-include disable-passwdmgr.inc
 include disable-shell.inc
 include disable-xdg.inc
 
@@ -43,14 +42,15 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
-# private-bin kazam,python*
+#private-bin kazam,python*
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,dconf,fonts,gtk-2.0,gtk-3.0,machine-id,pulse,selinux,X11,xdg
+private-etc @x11
 private-tmp
 
 dbus-system none
+
+restrict-namespaces

@@ -8,11 +8,12 @@ include globals.local
 
 noblacklist ${HOME}/.etr
 
+blacklist /usr/libexec
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -41,15 +42,17 @@ novideo
 protocol unix,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin etr
 private-cache
 private-dev
-# private-etc alternatives,drirc,machine-id,openal,passwd
+#private-etc alternatives,drirc,machine-id,openal,passwd
+private-etc @games,@x11
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

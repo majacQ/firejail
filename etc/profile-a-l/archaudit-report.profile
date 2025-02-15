@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -29,7 +28,6 @@ notv
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 disable-mnt
 private
@@ -38,3 +36,4 @@ private-bin arch-audit,archaudit-report,bash,cat,comm,cut,date,fold,grep,pacman,
 private-tmp
 
 memory-deny-write-execute
+restrict-namespaces

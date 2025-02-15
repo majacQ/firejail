@@ -14,7 +14,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-write-mnt.inc
 include disable-xdg.inc
@@ -39,14 +38,15 @@ nou2f
 novideo
 protocol unix,netlink
 seccomp
-shell none
 
-private-bin ppsspp,PPSSPP,PPSSPPQt,PPSSPPSDL
+private-bin PPSSPP,PPSSPPQt,PPSSPPSDL,ppsspp
 # Add the next line to your ppsspp.local if you do not need controller support.
 #private-dev
-private-etc alternatives,asound.conf,ca-certificates,crypto-policies,drirc,fonts,group,host.conf,hostname,hosts,ld.so.cache,ld.so.preload,localtime,machine-id,nsswitch.conf,passwd,pki,pulse,resolv.conf,ssl
+private-etc @tls-ca,@x11,host.conf
 private-opt ppsspp
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

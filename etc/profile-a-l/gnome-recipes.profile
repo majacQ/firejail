@@ -6,7 +6,6 @@ include gnome-recipes.local
 # Persistent global definitions
 include globals.local
 
-
 noblacklist ${HOME}/.cache/gnome-recipes
 noblacklist ${HOME}/.local/share/gnome-recipes
 
@@ -14,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -43,12 +41,12 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 disable-mnt
 private-bin gnome-recipes,tar
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,fonts,pki,ssl
+private-etc @tls-ca
 private-lib gdk-pixbuf-2.0,gio,gvfs/libgvfscommon.so,libgconf-2.so.*,libgnutls.so.*,libjpeg.so.*,libp11-kit.so.*,libproxy.so.*,librsvg-2.so.*
 private-tmp
 
+restrict-namespaces

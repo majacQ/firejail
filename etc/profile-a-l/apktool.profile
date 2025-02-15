@@ -9,7 +9,6 @@ include globals.local
 
 include disable-common.inc
 include disable-exec.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -29,7 +28,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 
 private-bin apktool,basename,bash,dirname,expr,java,sh
 private-cache
@@ -37,3 +35,5 @@ private-dev
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

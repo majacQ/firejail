@@ -8,14 +8,16 @@ include globals.local
 
 noblacklist ${HOME}/.xonotic
 
+# Allow /bin/sh (blacklisted by disable-shell.inc)
 include allow-bin-sh.inc
+
+# Allow opengl-game wrapper script (distribution-specific)
 include allow-opengl-game.inc
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -33,7 +35,6 @@ caps.drop all
 netfilter
 nodvd
 nogroups
-noinput
 nonewprivs
 noroot
 notv
@@ -41,14 +42,13 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-cache
 private-bin blind-id,darkplaces-glx,darkplaces-sdl,dirname,ldd,netstat,ps,readlink,sh,uname,xonotic*
 private-dev
-private-etc alternatives,asound.conf,ca-certificates,crypto-policies,drirc,fonts,group,host.conf,hostname,hosts,ld.so.cache,ld.so.preload,localtime,machine-id,nsswitch.conf,passwd,pki,pulse,resolv.conf,ssl
+private-etc @tls-ca,@x11,host.conf
 private-tmp
 
 dbus-user none
@@ -56,3 +56,4 @@ dbus-system none
 
 read-only ${HOME}
 read-write ${HOME}/.xonotic
+restrict-namespaces

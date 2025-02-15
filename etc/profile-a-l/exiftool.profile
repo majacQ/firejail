@@ -15,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 whitelist /usr/share/perl-image-exiftool
@@ -39,7 +38,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
@@ -49,10 +47,11 @@ x11 none
 #private-bin exiftool,perl
 private-cache
 private-dev
-private-etc alternatives
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

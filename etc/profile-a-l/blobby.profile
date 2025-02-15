@@ -10,7 +10,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -36,13 +35,12 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin blobby
 private-dev
-private-etc alsa,alternatives,asound.conf,drirc,group,hosts,login.defs,machine-id,passwd,pulse
+private-etc @x11
 private-lib
 private-tmp
 
@@ -50,3 +48,4 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.arm
@@ -38,12 +37,12 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin arm,bash,ldconfig,lsof,ps,python*,sh,tor
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,passwd,pki,ssl,tor
+private-etc @tls-ca,tor
 private-tmp
 
+restrict-namespaces

@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.cache/psi+
@@ -39,8 +38,9 @@ novideo
 protocol unix,inet,inet6
 # QtWebengine needs chroot to set up its own sandbox
 seccomp !chroot
-shell none
 
 disable-mnt
 private-dev
 private-tmp
+
+#restrict-namespaces

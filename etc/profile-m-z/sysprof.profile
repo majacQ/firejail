@@ -11,7 +11,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -57,15 +56,14 @@ nou2f
 novideo
 protocol unix,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
-#private-bin sysprof - breaks help menu
+#private-bin sysprof # breaks help menu
 private-cache
 private-dev
-private-etc alternatives,fonts,ld.so.cache,machine-id,ssl
-# private-lib - breaks help menu
+private-etc @tls-ca
+#private-lib # breaks help menu
 #private-lib gdk-pixbuf-2.*,gio,gtk3,gvfs/libgvfscommon.so,libgconf-2.so.*,librsvg-2.so.*,libsysprof-2.so,libsysprof-ui-2.so
 private-tmp
 
@@ -75,4 +73,5 @@ dbus-user.own org.gnome.Yelp
 dbus-user.own org.gnome.Sysprof3
 dbus-user.talk ca.desrt.dconf
 
-# memory-deny-write-execute - breaks on Arch
+#memory-deny-write-execute # breaks on Arch
+restrict-namespaces

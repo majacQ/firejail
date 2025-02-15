@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -39,17 +38,17 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
-# private-bin audio-recorder
+#private-bin audio-recorder
 private-cache
-private-etc alternatives,fonts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload
+private-etc
 private-tmp
 
 dbus-user filter
 dbus-user.talk ca.desrt.dconf
 dbus-system none
 
-# memory-deny-write-execute - breaks on Arch
+#memory-deny-write-execute # breaks on Arch
+restrict-namespaces

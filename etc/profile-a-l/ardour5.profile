@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -32,7 +31,6 @@ notv
 nou2f
 protocol unix
 seccomp
-shell none
 
 #private-bin ardour4,ardour5,ardour5-copy-mixer,ardour5-export,ardour5-fix_bbtppq,grep,ldd,nm,sed,sh
 private-cache
@@ -42,3 +40,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

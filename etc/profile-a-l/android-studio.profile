@@ -20,7 +20,6 @@ include allow-common-devel.inc
 include allow-ssh.inc
 
 include disable-common.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 include whitelist-var-common.inc
@@ -35,10 +34,10 @@ notv
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-cache
-# private-tmp
+#private-tmp
 
 # noexec /tmp breaks 'Android Profiler'
 #noexec /tmp
+restrict-namespaces

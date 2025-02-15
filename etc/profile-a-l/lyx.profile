@@ -23,7 +23,6 @@ include allow-python3.inc
 
 whitelist /usr/share/lyx
 whitelist /usr/share/texinfo
-whitelist /usr/share/texlive
 whitelist /usr/share/texmf-dist
 whitelist /usr/share/tlpkg
 include whitelist-usr-share-common.inc
@@ -31,8 +30,8 @@ include whitelist-usr-share-common.inc
 apparmor
 machine-id
 
-# private-bin atril,dvilualatex,env,latex,lua*,luatex,lyx,lyxclient,okular,pdf2latex,pdflatex,pdftex,perl*,python*,qpdf,qpdfview,sh,tex2lyx,texmf,xelatex
-private-etc alternatives,dconf,fonts,gtk-2.0,gtk-3.0,locale,locale.alias,locale.conf,lyx,machine-id,mime.types,passwd,texmf,X11,xdg
+#private-bin atril,dvilualatex,env,latex,lua*,luatex,lyx,lyxclient,okular,pdf2latex,pdflatex,pdftex,perl*,python*,qpdf,qpdfview,sh,tex2lyx,texmf,xelatex
+private-etc @x11,lyx,mime.types,texmf
 
 # Redirect
 include latex-common.profile

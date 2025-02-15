@@ -12,15 +12,18 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
+# Legacy paths
+#mkdir ${HOME}/.kde/share/config
+#mkdir ${HOME}/.kde4/share/config
+#mkfile ${HOME}/.kde/share/config/kcalcrc
+#mkfile ${HOME}/.kde4/share/config/kcalcrc
+
 mkdir ${HOME}/.local/share/kxmlgui5/kcalc
 mkfile ${HOME}/.config/kcalcrc
-mkfile ${HOME}/.kde/share/config/kcalcrc
-mkfile ${HOME}/.kde4/share/config/kcalcrc
 whitelist ${HOME}/.config/kcalcrc
 whitelist ${HOME}/.kde/share/config/kcalcrc
 whitelist ${HOME}/.kde4/share/config/kcalcrc
@@ -29,6 +32,7 @@ whitelist /usr/share/config.kcfg/kcalc.kcfg
 whitelist /usr/share/kcalc
 whitelist /usr/share/kconf_update/kcalcrc.upd
 include whitelist-common.inc
+include whitelist-run-common.inc
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
@@ -49,18 +53,18 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin kcalc
 private-cache
 private-dev
-private-etc alternatives,fonts,ld.so.cache,locale,locale.conf
-# private-lib - problems on Arch
+private-etc
+#private-lib # problems on Arch
 private-tmp
 
 dbus-user none
 dbus-system none
 
 #memory-deny-write-execute
+restrict-namespaces

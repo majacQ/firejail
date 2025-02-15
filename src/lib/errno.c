@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -31,7 +31,7 @@ typedef struct {
 
 static ErrnoEntry errnolist[] = {
 //
-// code generated using tools/extract-errnos
+// code generated using ../tools/extract_errnos.sh
 //
 	{"EPERM", EPERM},
 	{"ENOENT", ENOENT},

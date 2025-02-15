@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -19,7 +19,7 @@
  */
 
 //
-// Firejail access database inplementation
+// Firejail access database implementation
 //
 // The database is a simple list of users allowed to run firejail SUID executable
 // It is usually stored in /etc/firejail/firejail.users

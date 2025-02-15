@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -33,7 +32,6 @@ nou2f
 novideo
 protocol unix,netlink
 seccomp
-shell none
 
 private-bin penguin-command
 private-dev
@@ -41,3 +39,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

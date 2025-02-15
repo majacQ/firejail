@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -20,6 +19,7 @@ include disable-xdg.inc
 mkdir ${HOME}/.local/share/supertux2
 whitelist ${HOME}/.local/share/supertux2
 whitelist /usr/share/supertux2
+whitelist /usr/share/games/supertux2	# Debian version
 include whitelist-common.inc
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
@@ -30,7 +30,6 @@ caps.drop all
 net none
 nodvd
 nogroups
-noinput
 nonewprivs
 noroot
 notv
@@ -39,15 +38,16 @@ novideo
 protocol unix,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
-# private-bin supertux2
+#private-bin supertux2
 private-cache
-private-etc machine-id
+private-etc
 private-dev
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

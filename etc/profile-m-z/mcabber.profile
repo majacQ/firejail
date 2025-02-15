@@ -12,7 +12,6 @@ noblacklist ${HOME}/.mcabberrc
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -28,8 +27,9 @@ nou2f
 novideo
 protocol inet,inet6
 seccomp
-shell none
 
 private-bin mcabber
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,pki,ssl
+private-etc @tls-ca
+
+restrict-namespaces

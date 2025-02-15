@@ -7,6 +7,7 @@ include fractal.local
 include globals.local
 
 noblacklist ${HOME}/.cache/fractal
+noblacklist ${HOME}/.local/share/fractal
 
 # Allow python (blacklisted by disable-interpreters.inc)
 include allow-python2.inc
@@ -16,14 +17,16 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.cache/fractal
+mkdir ${HOME}/.local/share/fractal
 whitelist ${HOME}/.cache/fractal
+whitelist ${HOME}/.local/share/fractal
 whitelist ${DOWNLOADS}
+whitelist /usr/share/fractal
 include whitelist-common.inc
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
@@ -41,14 +44,13 @@ notv
 nou2f
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin fractal
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,ca-certificates,crypto-policies,fonts,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,mime.types,nsswitch.conf,pki,pulse,resolv.conf,selinux,ssl,X11,xdg
+private-etc @tls-ca,@x11,host.conf,mime.types
 private-tmp
 
 dbus-user filter
@@ -57,3 +59,5 @@ dbus-user.talk ca.desrt.dconf
 dbus-user.talk org.freedesktop.Notifications
 dbus-user.talk org.freedesktop.secrets
 dbus-system none
+
+restrict-namespaces

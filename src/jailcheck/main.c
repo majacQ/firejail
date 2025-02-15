@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -29,16 +29,19 @@ char *user_home_dir = NULL;
 char *user_run_dir = NULL;
 int arg_debug = 0;
 
-static char *usage_str =
+static const char *const usage_str =
 	"Usage: jailcheck [options] directory [directory]\n\n"
 	"Options:\n"
 	"   --debug - print debug messages.\n"
 	"   --help, -? - this help screen.\n"
 	"   --version - print program version and exit.\n";
 
+static void print_version(void) {
+	printf("jailcheck version %s\n\n", VERSION);
+}
 
 static void usage(void) {
-	printf("firetest - version %s\n\n", VERSION);
+	print_version();
 	puts(usage_str);
 }
 
@@ -62,7 +65,7 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 		else if (strcmp(argv[i], "--version") == 0) {
-			printf("firetest version %s\n\n", VERSION);
+			print_version();
 			return 0;
 		}
 		else if (strncmp(argv[i], "--hello=", 8) == 0) { // used by noexec test
@@ -83,7 +86,7 @@ int main(int argc, char **argv) {
 
 	// user setup
 	if (getuid() != 0) {
-		fprintf(stderr, "Error: you need to be root (via sudo) to run this program\n");
+		fprintf(stderr, "Error: you need to be root (via sudo or doas) to run this program\n");
 		exit(1);
 	}
 	user_name = get_sudo_user();
@@ -117,6 +120,7 @@ int main(int argc, char **argv) {
 	// basic sysfiles
 	sysfiles_setup("/etc/shadow");
 	sysfiles_setup("/etc/gshadow");
+	sysfiles_setup("/usr/bin/doas");
 	sysfiles_setup("/usr/bin/mount");
 	sysfiles_setup("/usr/bin/su");
 	sysfiles_setup("/usr/bin/ksu");
@@ -157,6 +161,7 @@ int main(int argc, char **argv) {
 			seccomp_test(pid);
 			fflush(0);
 
+			// filesystem tests
 			pid_t child = fork();
 			if (child == -1)
 				errExit("fork");
@@ -184,6 +189,28 @@ int main(int argc, char **argv) {
 				return 0;
 			}
 			int status;
+			wait(&status);
+
+			// network test
+			child = fork();
+			if (child == -1)
+				errExit("fork");
+			if (child == 0) {
+				int rv = join_namespace(pid, "net");
+				if (rv == 0)
+					network_test();
+				else {
+					printf("   Error: I cannot join the process network stack\n");
+					exit(1);
+				}
+
+				// drop privileges in order not to trigger cleanup()
+				if (setgid(user_gid) != 0)
+					errExit("setgid");
+				if (setuid(user_uid) != 0)
+					errExit("setuid");
+				return 0;
+			}
 			wait(&status);
 		}
 	}

@@ -10,12 +10,12 @@ include globals.local
 blacklist ${RUNUSER}
 
 noblacklist ${DOCUMENTS}
+noblacklist ${PATH}/patch
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-shell.inc
 include disable-xdg.inc
 
@@ -38,7 +38,6 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 x11 none
 
@@ -50,3 +49,4 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

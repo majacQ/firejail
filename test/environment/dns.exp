@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
 # This file is part of Firejail project
-# Copyright (C) 2014-2021 Firejail Authors
+# Copyright (C) 2014-2025 Firejail Authors
 # License GPL v2
 
 set timeout 10
@@ -30,7 +30,7 @@ expect {
 }
 expect {
 	timeout {puts "TESTING ERROR 1.5\n";exit}
-	"Child process initialized"
+	-re "Child process initialized in \[0-9\]+.\[0-9\]+ ms"
 }
 expect {
 	timeout {puts "TESTING ERROR 1.6\n";exit}
@@ -47,7 +47,7 @@ expect {
 	"DNS server 8.8.8.8" {puts "TESTING ERROR 2.3\n";exit}
 	"DNS server 4.2.2.1" {puts "TESTING ERROR 2.4\n";exit}
 	"DNS server ::2" {puts "TESTING ERROR 2.5\n";exit}
-	"Child process initialized" {puts "TESTING ERROR 2.6\n";exit}
+	-re "Child process initialized in \[0-9\]+.\[0-9\]+ ms" {puts "TESTING ERROR 2.6\n";exit}
 	"Parent is shutting down, bye..." {puts "TESTING ERROR 2.7\n";exit}
 	"root"
 }
@@ -56,7 +56,7 @@ after 100
 send -- "firejail --dns=8.8.4.4 --dns=8.8.8.8 --dns=4.2.2.1 --dns=::2\r"
 expect {
 	timeout {puts "TESTING ERROR 3\n";exit}
-	"Child process initialized"
+	-re "Child process initialized in \[0-9\]+.\[0-9\]+ ms"
 }
 sleep 1
 
@@ -85,7 +85,7 @@ sleep 1
 send -- "firejail --profile=dns.profile\r"
 expect {
 	timeout {puts "TESTING ERROR 5.1\n";exit}
-	"Child process initialized"
+	-re "Child process initialized in \[0-9\]+.\[0-9\]+ ms"
 }
 sleep 1
 
@@ -110,23 +110,23 @@ expect {
 send -- "exit\r"
 sleep 1
 
-send -- "firejail --trace --dns=208.67.222.222 wget -q debian.org\r"
-expect {
-	timeout {puts "TESTING ERROR 6.1\n";exit}
-	"connect"
-}
-expect {
-	timeout {puts "TESTING ERROR 6.2\n";exit}
-	"208.67.222.222"
-}
-expect {
-	timeout {puts "TESTING ERROR 6.3\n";exit}
-	"53"
-}
-after 100
+# test disabled, as Github CI uses systemd-resolved, which does not work
+# properly with --dns=, so curl does not use the specified nameserver
+#send -- "firejail --trace --dns=208.67.222.222 -- curl --silent --output /dev/null debian.org\r"
+#expect {
+#	timeout {puts "TESTING ERROR 6.1\n";exit}
+#	"connect"
+#}
+#expect {
+#	timeout {puts "TESTING ERROR 6.2\n";exit}
+#	"208.67.222.222"
+#}
+#expect {
+#	timeout {puts "TESTING ERROR 6.3\n";exit}
+#	"53"
+#}
+#after 100
 
-send -- "rm index.html\r"
-after 100
 send -- "exit\r"
 sleep 1
 

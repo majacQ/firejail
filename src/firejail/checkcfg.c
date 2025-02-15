@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -35,6 +35,7 @@ char *xvfb_extra_params = "";
 char *netfilter_default = NULL;
 unsigned long join_timeout = 5000000; // microseconds
 char *config_seccomp_error_action_str = "EPERM";
+char *config_seccomp_filter_add = NULL;
 char **whitelist_reject_topdirs = NULL;
 
 int checkcfg(int val) {
@@ -57,6 +58,11 @@ int checkcfg(int val) {
 		cfg_val[CFG_XPRA_ATTACH] = 0;
 		cfg_val[CFG_SECCOMP_ERROR_ACTION] = -1;
 		cfg_val[CFG_BROWSER_ALLOW_DRM] = 0;
+		cfg_val[CFG_ALLOW_TRAY] = 0;
+		cfg_val[CFG_CHROOT] = 0;
+		cfg_val[CFG_SECCOMP_LOG] = 0;
+		cfg_val[CFG_PRIVATE_LIB] = 0;
+		cfg_val[CFG_TRACELOG] = 0;
 
 		// open configuration file
 		const char *fname = SYSCONFDIR "/firejail.config";
@@ -98,27 +104,31 @@ int checkcfg(int val) {
 			PARSE_YESNO(CFG_X11, "x11")
 			PARSE_YESNO(CFG_APPARMOR, "apparmor")
 			PARSE_YESNO(CFG_BIND, "bind")
-			PARSE_YESNO(CFG_CGROUP, "cgroup")
 			PARSE_YESNO(CFG_NAME_CHANGE, "name-change")
 			PARSE_YESNO(CFG_USERNS, "userns")
 			PARSE_YESNO(CFG_CHROOT, "chroot")
 			PARSE_YESNO(CFG_FIREJAIL_PROMPT, "firejail-prompt")
-			PARSE_YESNO(CFG_FOLLOW_SYMLINK_AS_USER, "follow-symlink-as-user")
 			PARSE_YESNO(CFG_FORCE_NONEWPRIVS, "force-nonewprivs")
 			PARSE_YESNO(CFG_SECCOMP, "seccomp")
-			PARSE_YESNO(CFG_WHITELIST, "whitelist")
 			PARSE_YESNO(CFG_NETWORK, "network")
 			PARSE_YESNO(CFG_RESTRICTED_NETWORK, "restricted-network")
+			PARSE_YESNO(CFG_TRACELOG, "tracelog")
 			PARSE_YESNO(CFG_XEPHYR_WINDOW_TITLE, "xephyr-window-title")
 			PARSE_YESNO(CFG_OVERLAYFS, "overlayfs")
-			PARSE_YESNO(CFG_PRIVATE_HOME, "private-home")
-			PARSE_YESNO(CFG_PRIVATE_CACHE, "private-cache")
-			PARSE_YESNO(CFG_PRIVATE_LIB, "private-lib")
+			PARSE_YESNO(CFG_PRIVATE_BIN, "private-bin")
 			PARSE_YESNO(CFG_PRIVATE_BIN_NO_LOCAL, "private-bin-no-local")
+			PARSE_YESNO(CFG_PRIVATE_CACHE, "private-cache")
+			PARSE_YESNO(CFG_PRIVATE_ETC, "private-etc")
+			PARSE_YESNO(CFG_PRIVATE_HOME, "private-home")
+			PARSE_YESNO(CFG_PRIVATE_LIB, "private-lib")
+			PARSE_YESNO(CFG_PRIVATE_OPT, "private-opt")
+			PARSE_YESNO(CFG_PRIVATE_SRV, "private-srv")
 			PARSE_YESNO(CFG_DISABLE_MNT, "disable-mnt")
 			PARSE_YESNO(CFG_XPRA_ATTACH, "xpra-attach")
 			PARSE_YESNO(CFG_BROWSER_DISABLE_U2F, "browser-disable-u2f")
 			PARSE_YESNO(CFG_BROWSER_ALLOW_DRM, "browser-allow-drm")
+			PARSE_YESNO(CFG_ALLOW_TRAY, "allow-tray")
+			PARSE_YESNO(CFG_SECCOMP_LOG, "seccomp-log")
 #undef PARSE_YESNO
 
 			// netfilter
@@ -131,8 +141,7 @@ int checkcfg(int val) {
 					*end = '\0';
 
 				// is the file present?
-				struct stat s;
-				if (stat(fname, &s) == -1) {
+				if (access(fname, F_OK) == -1) {
 					fprintf(stderr, "Error: netfilter-default file %s not available\n", fname);
 					exit(1);
 				}
@@ -223,6 +232,10 @@ int checkcfg(int val) {
 			else if (strncmp(ptr, "join-timeout ", 13) == 0)
 				join_timeout = strtoul(ptr + 13, NULL, 10) * 1000000; // seconds to microseconds
 
+			// add rules to default seccomp filter
+			else if (strncmp(ptr, "seccomp-filter-add ", 19) == 0)
+				config_seccomp_filter_add = seccomp_check_list(ptr + 19);
+
 			// seccomp error action
 			else if (strncmp(ptr, "seccomp-error-action ", 21) == 0) {
 				if (strcmp(ptr + 21, "kill") == 0)
@@ -292,135 +305,135 @@ errout:
 	exit(1);
 }
 
-
-void print_compiletime_support(void) {
-	printf("Compile time support:\n");
-	printf("\t- Always force nonewprivs support is %s\n",
+static const char *const compiletime_support =
+	"Compile time support:"
+	"\n\t- always force nonewprivs support is "
 #ifdef HAVE_FORCE_NONEWPRIVS
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- AppArmor support is %s\n",
+	"\n\t- AppArmor support is "
 #ifdef HAVE_APPARMOR
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- AppImage support is %s\n",
+	"\n\t- AppImage support is "
 #ifdef LOOP_CTL_GET_FREE	// test for older kernels; this definition is found in /usr/include/linux/loop.h
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- chroot support is %s\n",
+	"\n\t- chroot support is "
 #ifdef HAVE_CHROOT
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- D-BUS proxy support is %s\n",
+	"\n\t- D-BUS proxy support is "
 #ifdef HAVE_DBUSPROXY
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- file and directory whitelisting support is %s\n",
-#ifdef HAVE_WHITELIST
-		"enabled"
-#else
-		"disabled"
-#endif
-		);
-
-	printf("\t- file transfer support is %s\n",
+	"\n\t- file transfer support is "
 #ifdef HAVE_FILE_TRANSFER
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- firetunnel support is %s\n",
-#ifdef HAVE_FIRETUNNEL
+	"\n\t- IDS support is "
+#ifdef HAVE_IDS
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- networking support is %s\n",
+	"\n\t- Landlock support is "
+#ifdef HAVE_LANDLOCK
+		"enabled"
+#else
+		"disabled"
+#endif
+
+	"\n\t- networking support is "
 #ifdef HAVE_NETWORK
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- output logging is %s\n",
+	"\n\t- output logging is "
 #ifdef HAVE_OUTPUT
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
-	printf("\t- overlayfs support is %s\n",
+
+	"\n\t- overlayfs support is "
 #ifdef HAVE_OVERLAYFS
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- private-home support is %s\n",
+	"\n\t- private-home support is "
 #ifdef HAVE_PRIVATE_HOME
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- private-cache and tmpfs as user %s\n",
+	"\n\t- private-lib support is "
+#ifdef HAVE_PRIVATE_LIB
+		"enabled"
+#else
+		"disabled"
+#endif
+
+	"\n\t- private-cache and tmpfs as user "
 #ifdef HAVE_USERTMPFS
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- SELinux support is %s\n",
+	"\n\t- sandbox check is "
+#ifdef HAVE_SANDBOX_CHECK
+		"enabled"
+#else
+		"disabled"
+#endif
+
+	"\n\t- SELinux support is "
 #ifdef HAVE_SELINUX
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- user namespace support is %s\n",
+	"\n\t- user namespace support is "
 #ifdef HAVE_USERNS
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
 
-	printf("\t- X11 sandboxing support is %s\n",
+	"\n\t- X11 sandboxing support is "
 #ifdef HAVE_X11
 		"enabled"
 #else
 		"disabled"
 #endif
-		);
+	"\n";
 
-
+void print_compiletime_support(void) {
+	puts(compiletime_support);
 }

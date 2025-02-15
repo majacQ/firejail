@@ -14,7 +14,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-write-mnt.inc
@@ -41,17 +40,18 @@ notv
 nou2f
 novideo
 protocol unix,netlink
-#seccomp - breaks loading with no logs
-shell none
-#tracelog - 32/64 bit incompatibility
+#seccomp # breaks loading with no logs
+#tracelog # 32/64 bit incompatibility
 
 private-bin PCSX2
 private-cache
 # Add the next line to your PCSX2.local if you do not need controller support.
 #private-dev
-private-etc alsa,alternatives,asound.conf,bumblebee,ca-certificates,crypto-policies,dconf,drirc,fonts,gconf,glvnd,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,machine-id,mime.types,nsswitch.conf,nvidia,pango,pki,protocols,pulse,resolv.conf,rpc,services,ssl,X11,xdg
+private-etc @tls-ca,@x11,bumblebee,gconf,glvnd,host.conf,mime.types,rpc,services
 private-opt none
 private-tmp
 
 dbus-user none
 dbus-system none
+
+#restrict-namespaces

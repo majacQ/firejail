@@ -7,26 +7,26 @@ include QOwnNotes.local
 include globals.local
 
 noblacklist ${DOCUMENTS}
-noblacklist ${HOME}/Nextcloud/Notes
 noblacklist ${HOME}/.config/PBE
 noblacklist ${HOME}/.local/share/PBE
+noblacklist ${HOME}/Nextcloud
+noblacklist ${HOME}/Nextcloud/Notes
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
-mkdir ${HOME}/Nextcloud/Notes
 mkdir ${HOME}/.config/PBE
 mkdir ${HOME}/.local/share/PBE
+mkdir ${HOME}/Nextcloud/Notes
 whitelist ${DOCUMENTS}
-whitelist ${HOME}/Nextcloud/Notes
 whitelist ${HOME}/.config/PBE
 whitelist ${HOME}/.local/share/PBE
+whitelist ${HOME}/Nextcloud/Notes
 include whitelist-common.inc
 include whitelist-var-common.inc
 
@@ -45,12 +45,12 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
-private-bin gio,QOwnNotes
+private-bin QOwnNotes,gio
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,fonts,host.conf,hosts,ld.so.cache,machine-id,nsswitch.conf,pki,pulse,resolv.conf,ssl
+private-etc @tls-ca,host.conf
 private-tmp
 
+restrict-namespaces

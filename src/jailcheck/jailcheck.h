@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -53,6 +53,8 @@ void apparmor_test(pid_t pid);
 // seccomp.c
 void seccomp_test(pid_t pid);
 
+// network.c
+void network_test(void);
 // utils.c
 char *get_sudo_user(void);
 char *get_homedir(const char *user, uid_t *uid, gid_t *gid);

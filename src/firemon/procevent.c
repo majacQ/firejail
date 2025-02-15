@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 #include "firemon.h"
+#include "../include/gcov_wrapper.h"
 #include <sys/socket.h>
 #include <linux/connector.h>
 #include <linux/netlink.h>
@@ -184,7 +185,7 @@ static int procevent_netlink_setup(void) {
 		if (getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &bsize, &blen) == -1)
 			fprintf(stderr, "Error: cannot read rx buffer size\n");
 		else
-			printf("rx buffer size %d\n", bsize / 2); // the value returned is duble the real one, see man 7 socket
+			printf("rx buffer size %d\n", bsize / 2); // the value returned is double the real one, see man 7 socket
 	}
 
 	// send monitoring message
@@ -230,9 +231,7 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 	tv.tv_usec = 0;
 
 	while (1) {
-#ifdef HAVE_GCOV
 		__gcov_flush();
-#endif
 
 #define BUFFSIZE 4096
 		char __attribute__ ((aligned(NLMSG_ALIGNTO)))buf[BUFFSIZE];
@@ -302,7 +301,9 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 			proc_ev = (struct proc_event *)cn_msg->data;
 			pid_t pid = 0;
 			pid_t child = 0;
+			char *new_comm = NULL;
 			int remove_pid = 0;
+			int nodisplay = 0;
 			switch (proc_ev->what) {
 				case PROC_EVENT_FORK:
 #ifdef DEBUG_PRCTL
@@ -310,7 +311,7 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 #endif
 					if (proc_ev->event_data.fork.child_pid !=
 					    proc_ev->event_data.fork.child_tgid)
-					    	continue; // this is a thread, not a process
+						continue; // this is a thread, not a process
 					pid = proc_ev->event_data.fork.parent_tgid;
 #ifdef DEBUG_PRCTL
 	printf("%s: %d, event fork, pid %d\n", __FUNCTION__, __LINE__, pid);
@@ -323,6 +324,7 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 						pids[child].parent = pid;
 					}
 					sprintf(lineptr, " fork");
+					nodisplay = 1;
 					break;
 				case PROC_EVENT_EXEC:
 					pid = proc_ev->event_data.exec.process_tgid;
@@ -364,6 +366,7 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 						sprintf(lineptr, " uid (%d:%d)",
 							proc_ev->event_data.id.r.ruid,
 							proc_ev->event_data.id.e.euid);
+					nodisplay = 1;
 					break;
 
 				case PROC_EVENT_GID:
@@ -380,6 +383,7 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 						sprintf(lineptr, " gid (%d:%d)",
 							proc_ev->event_data.id.r.rgid,
 							proc_ev->event_data.id.e.egid);
+					nodisplay = 1;
 					break;
 
 
@@ -390,6 +394,44 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 	printf("%s: %d, event sid, pid %d\n", __FUNCTION__, __LINE__, pid);
 #endif
 					sprintf(lineptr, " sid ");
+					break;
+
+// Note: PROC_EVENT_COREDUMP only exists since Linux 3.10 (see #6414).
+#ifdef PROC_EVENT_COREDUMP
+				case PROC_EVENT_COREDUMP:
+					pid = proc_ev->event_data.coredump.process_tgid;
+#ifdef DEBUG_PRCTL
+	printf("%s: %d, event coredump, pid %d\n", __FUNCTION__, __LINE__, pid);
+#endif
+					sprintf(lineptr, " coredump ");
+					break;
+#endif /* PROC_EVENT_COREDUMP */
+
+				case PROC_EVENT_COMM:
+					pid = proc_ev->event_data.comm.process_tgid;
+#ifdef DEBUG_PRCTL
+	printf("%s: %d, event comm, pid %d\n", __FUNCTION__, __LINE__, pid);
+#endif
+					if (proc_ev->event_data.comm.process_pid !=
+					    proc_ev->event_data.comm.process_tgid)
+						continue; // this is a thread, not a process
+
+					if (pids[pid].level == 1 ||
+					    pids[pids[pid].parent].level == 1) {
+						sprintf(lineptr, "\n");
+						continue;
+					}
+					else
+						sprintf(lineptr, " comm  %s", proc_ev->event_data.comm.comm);
+					nodisplay = 1;
+					break;
+
+				case PROC_EVENT_PTRACE:
+					pid = proc_ev->event_data.ptrace.process_tgid;
+#ifdef DEBUG_PRCTL
+	printf("%s: %d, event ptrace, pid %d\n", __FUNCTION__, __LINE__, pid);
+#endif
+					sprintf(lineptr, " ptrace ");
 					break;
 
 				default:
@@ -418,18 +460,18 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 			sprintf(lineptr, " %u", pid);
 			lineptr += strlen(lineptr);
 
-			char *user = pids[pid].user;
+			char *user = pids[pid].option.event.user;
 			if (!user)
 				user = pid_get_user_name(pids[pid].uid);
 			if (user) {
-				pids[pid].user = user;
+				pids[pid].option.event.user = user;
 				sprintf(lineptr, " (%s)", user);
 				lineptr += strlen(lineptr);
 			}
 
 
 			int sandbox_closed = 0; // exit sandbox flag
-			char *cmd = pids[pid].cmd;
+			char *cmd = pids[pid].option.event.cmd;
 			if (!cmd) {
 				cmd = pid_proc_cmdline(pid);
 			}
@@ -450,7 +492,7 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 				if (!cmd) {
 					cmd = pid_proc_cmdline(pid);
 				}
-				if (cmd == NULL)
+				if (cmd == NULL || nodisplay)
 					sprintf(lineptr, "\n");
 				else {
 					sprintf(lineptr, " %s\n", cmd);
@@ -466,29 +508,26 @@ static void __attribute__((noreturn)) procevent_monitor(const int sock, pid_t my
 
 			// unflag pid for exit events
 			if (remove_pid) {
-				if (pids[pid].user)
-					free(pids[pid].user);
-				if (pids[pid].cmd)
-					free(pids[pid].cmd);
+				if (pids[pid].option.event.user)
+					free(pids[pid].option.event.user);
+				if (pids[pid].option.event.cmd)
+					free(pids[pid].option.event.cmd);
 				memset(&pids[pid], 0, sizeof(Process));
 			}
 
 			// print forked child
-			if (child) {
-				cmd = pid_proc_cmdline(child);
-				if (cmd) {
-					printf("\tchild %u %s\n", child, cmd);
-					free(cmd);
-				}
-				else
-					printf("\tchild %u\n", child);
-			}
+			if (child)
+				printf("\tchild %u\n", child);
+
+			// print new comm
+			if (new_comm)
+				printf("\tnew comm %s\n", new_comm);
 
 			// on uid events the uid is changing
 			if (proc_ev->what == PROC_EVENT_UID) {
-				if (pids[pid].user)
-					free(pids[pid].user);
-				pids[pid].user = 0;
+				if (pids[pid].option.event.user)
+					free(pids[pid].option.event.user);
+				pids[pid].option.event.user = 0;
 				pids[pid].uid = pid_get_uid(pid);
 			}
 
@@ -504,6 +543,17 @@ void procevent(pid_t pid) {
 	if (getuid() != 0) {
 		fprintf(stderr, "Error: you need to be root to get process events\n");
 		exit(1);
+	}
+
+	// set max_pids to the max value allowed by the kernel
+	FILE *fp = fopen("/proc/sys/kernel/pid_max", "r");
+	if (fp) {
+		int val;
+		if (fscanf(fp, "%d", &val) == 1) {
+			if (val >= max_pids)
+				max_pids = val + 1;
+		}
+		fclose(fp);
 	}
 
 	// monitor using netlink

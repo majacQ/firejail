@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -41,7 +40,6 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
@@ -50,11 +48,12 @@ disable-mnt
 private-bin gjs,gnome-characters
 private-cache
 private-dev
-private-etc alternatives,dconf,fonts,gconf,gtk-2.0,gtk-3.0,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,mime.types,pango,X11,xdg
+private-etc @x11,gconf,mime.types
 private-tmp
 
 # Add the next lines to your gnome-characters.local if you don't need access to recently used chars.
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
 
 read-only ${HOME}
+restrict-namespaces

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -19,10 +19,14 @@
 */
 #include "fbuilder.h"
 int arg_debug = 0;
+int arg_appimage = 0;
+
+static const char *const usage_str =
+	"Firejail profile builder\n"
+	"Usage: firejail [--debug] --build[=profile-file] program-and-arguments\n";
 
 static void usage(void) {
-	printf("Firejail profile builder\n");
-	printf("Usage: firejail [--debug] --build[=profile-file] program-and-arguments\n");
+	puts(usage_str);
 }
 
 int main(int argc, char **argv) {
@@ -31,7 +35,7 @@ int main(int argc, char **argv) {
 system("cat /proc/self/status");
 int i;
 for (i = 0; i < argc; i++)
-        printf("*%s* ", argv[i]);
+	printf("*%s* ", argv[i]);
 printf("\n");
 }
 #endif
@@ -49,6 +53,8 @@ printf("\n");
 		}
 		else if (strcmp(argv[i], "--debug") == 0)
 			arg_debug = 1;
+		else if (strcmp(argv[i], "--appimage") == 0)
+			arg_appimage = 1;
 		else if (strcmp(argv[i], "--build") == 0)
 			; // do nothing, this is passed down from firejail
 		else if (strncmp(argv[i], "--build=", 8) == 0) {
@@ -60,21 +66,21 @@ printf("\n");
 
 			// don't run if the file exists
 			if (access(argv[i] + 8, F_OK) == 0) {
-				fprintf(stderr, "Error: the profile file already exists. Please use a different file name.\n");
+				fprintf(stderr, "Error fbuilder: the profile file already exists. Please use a different file name.\n");
 				exit(1);
 			}
 
 			// check file access
 			fp = fopen(argv[i] + 8, "w");
 			if (!fp) {
-				fprintf(stderr, "Error: cannot open profile file.\n");
+				fprintf(stderr, "Error fbuilder: cannot open profile file.\n");
 				exit(1);
 			}
 			prof_file = argv[i] + 8;
 		}
 		else {
 			if (*argv[i] == '-') {
-				fprintf(stderr, "Error: invalid program\n");
+				fprintf(stderr, "Error fbuilder: invalid program\n");
 				usage();
 				exit(1);
 			}
@@ -84,7 +90,7 @@ printf("\n");
 	}
 
 	if (prog_index == 0) {
-		fprintf(stderr, "Error : program and arguments required\n");
+		fprintf(stderr, "Error fbuilder: program and arguments required\n");
 		usage();
 		if (prof_file) {
 			fclose(fp);

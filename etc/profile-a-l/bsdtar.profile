@@ -6,7 +6,5 @@ include bsdtar.local
 # Persistent global definitions
 include globals.local
 
-private-etc alternatives,group,localtime,passwd
-
 # Redirect
 include archiver-common.profile

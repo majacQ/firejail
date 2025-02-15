@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -24,6 +24,131 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include <glob.h>
+#include "../include/etc_groups.h"
+
+static int etc_cnt = 0;
+
+static void etc_copy_group(char **pptr) {
+	assert(pptr);
+
+	while (*pptr != NULL) {
+		etc_list[etc_cnt++] = *pptr;
+		etc_list[etc_cnt] = NULL;
+		pptr++;
+	}
+}
+
+static void etc_add(const char *file) {
+	assert(file);
+	if (etc_cnt >= ETC_MAX) {
+		fprintf(stderr, "Error: size of private_etc list exceeded (%d maximum)\n", ETC_MAX);
+		exit(1);
+	}
+
+	// look for file in the current list
+	int i;
+	for (i = 0; i < etc_cnt; i++) {
+		if (strcmp(file, etc_list[i]) == 0) {
+			if (arg_debug)
+				printf("private-etc arguments: skip %s\n", file);
+			return;
+		}
+	}
+
+	char *ptr = strdup(file);
+	if (!ptr)
+		errExit("strdup");
+	etc_list[etc_cnt++] = ptr;
+	etc_list[etc_cnt] = NULL;
+}
+
+// str can be NULL
+char *fs_etc_build(char *str) {
+	while (etc_list[etc_cnt++]);
+	etc_cnt--;
+	if (!arg_nonetwork)
+		etc_copy_group(&etc_group_network[0]);
+	if (!arg_nosound)
+		etc_copy_group(&etc_group_sound[0]);
+
+	// parsing
+	if (str) {
+		char* ptr = strtok(str, ",");
+		while (ptr) {
+			// look for standard groups
+			if (strcmp(ptr, "@tls-ca") == 0)
+				etc_copy_group(&etc_group_tls_ca[0]);
+			if (strcmp(ptr, "@x11") == 0)
+				etc_copy_group(&etc_group_x11[0]);
+			if (strcmp(ptr, "@sound") == 0)
+				etc_copy_group(&etc_group_sound[0]);
+			if (strcmp(ptr, "@network") == 0)
+				etc_copy_group(&etc_group_network[0]);
+			if (strcmp(ptr, "@games") == 0)
+				etc_copy_group(&etc_group_games[0]);
+			else
+				etc_add(ptr);
+			ptr = strtok(NULL, ",");
+		}
+	}
+
+	// manufacture the new string
+	int len = 0;
+	int i;
+	for (i = 0; i < etc_cnt; i++)
+		len += strlen(etc_list[i]) + 1; // plus 1 for the trailing ','
+	char *rv = malloc(len + 1);
+	if (!rv)
+		errExit("malloc");
+	char *ptr = rv;
+	for (i = 0; i < etc_cnt; i++) {
+		sprintf(ptr, "%s,", etc_list[i]);
+		ptr += strlen(etc_list[i]) + 1;
+	}
+
+	return rv;
+}
+
+void fs_resolvconf(void) {
+	if (arg_nonetwork) {
+		if (arg_debug)
+			printf("arg_nonetwork found (--net=none). Skip creating /etc/resolv.conf file\n");
+		return;
+	}
+	if (arg_debug)
+		printf("Creating a new /etc/resolv.conf file\n");
+	FILE *fp = fopen(RUN_RESOLVCONF_FILE, "wxe");
+	if (!fp) {
+		fprintf(stderr, "Error: cannot create /etc/resolv.conf file\n");
+		exit(1);
+	}
+
+	if (cfg.dns1) {
+		if (any_dhcp())
+			fwarning("network setup uses DHCP, nameservers will likely be overwritten\n");
+		fprintf(fp, "nameserver %s\n", cfg.dns1);
+	}
+	if (cfg.dns2)
+		fprintf(fp, "nameserver %s\n", cfg.dns2);
+	if (cfg.dns3)
+		fprintf(fp, "nameserver %s\n", cfg.dns3);
+	if (cfg.dns4)
+		fprintf(fp, "nameserver %s\n", cfg.dns4);
+
+	// mode and owner
+	SET_PERMS_STREAM(fp, 0, 0, 0644);
+
+	fclose(fp);
+	selinux_relabel_path(RUN_RESOLVCONF_FILE, "/etc/resolv.conf");
+
+
+	if (mount(RUN_RESOLVCONF_FILE, "/etc/resolv.conf", "none", MS_BIND, "mode=644,gid=0") < 0)
+		errExit("mount");
+
+	fs_logger("create /etc/resolv.conf");
+}
+
 
 // spoof /etc/machine_id
 void fs_machineid(void) {
@@ -103,7 +228,10 @@ static void build_dirs(char *src, char *dst, size_t src_prefix_len, size_t dst_p
 				*q = '\0';
 				*r = '/';
 				r = q;
-				create_empty_dir_as_root(dst, s.st_mode);
+				if (mkdir(dst, 0700) != 0 && errno != EEXIST)
+					errExit("mkdir");
+				if (chmod(dst, s.st_mode) != 0)
+					errExit("chmod");
 			}
 			if (!last) {
 				// If we're not at the final terminating null, restore
@@ -139,19 +267,11 @@ errexit:
 }
 
 static void duplicate(const char *fname, const char *private_dir, const char *private_run_dir) {
-	assert(fname);
-
-	if (*fname == '~' || *fname == '/' || strncmp(fname, "..", 2) == 0) {
-		fprintf(stderr, "Error: \"%s\" is an invalid filename\n", fname);
-		exit(1);
-	}
-	invalid_filename(fname, 0); // no globbing
-
 	char *src;
 	if (asprintf(&src,  "%s/%s", private_dir, fname) == -1)
 		errExit("asprintf");
+
 	if (check_dir_or_file(src) == 0) {
-		fwarning("skipping %s for private %s\n", fname, private_dir);
 		free(src);
 		return;
 	}
@@ -164,13 +284,50 @@ static void duplicate(const char *fname, const char *private_dir, const char *pr
 		errExit("asprintf");
 
 	build_dirs(src, dst, strlen(private_dir), strlen(private_run_dir));
-	sbox_run(SBOX_ROOT | SBOX_SECCOMP, 3, PATH_FCOPY, src, dst);
+
+	// follow links by default, thus making a copy of the file or directory pointed by the symlink
+	// this will solve problems such as NixOS #4887
+	//
+	// don't follow links to dynamic directories such as /proc
+	if (strcmp(src, "/etc/mtab") == 0)
+		sbox_run(SBOX_ROOT | SBOX_SECCOMP, 3, PATH_FCOPY, src, dst);
+	else
+		sbox_run(SBOX_ROOT | SBOX_SECCOMP, 4, PATH_FCOPY, "--follow-link", src, dst);
 
 	free(dst);
 	fs_logger2("clone", src);
-	free(src);
 }
 
+static void duplicate_globbing(const char *fname, const char *private_dir, const char *private_run_dir) {
+	assert(fname);
+
+	if (*fname == '~' || *fname == '/' || strstr(fname, "..")) {
+		fprintf(stderr, "Error: \"%s\" is an invalid filename\n", fname);
+		exit(1);
+	}
+	invalid_filename(fname, 1); // no globbing
+
+	char *pattern;
+	if (asprintf(&pattern,  "%s/%s", private_dir, fname) == -1)
+		errExit("asprintf");
+
+	glob_t globbuf;
+	int globerr = glob(pattern, GLOB_NOCHECK | GLOB_NOSORT | GLOB_PERIOD, NULL, &globbuf);
+	if (globerr) {
+		fprintf(stderr, "Error: failed to glob pattern %s\n", pattern);
+		exit(1);
+	}
+
+	size_t i;
+	int len = strlen(private_dir);
+	for (i = 0; i < globbuf.gl_pathc; i++) {
+		char *path = globbuf.gl_pathv[i];
+		duplicate(path + len + 1, private_dir, private_run_dir);
+	}
+
+	globfree(&globbuf);
+	free(pattern);
+}
 
 void fs_private_dir_copy(const char *private_dir, const char *private_run_dir, const char *private_list) {
 	assert(private_dir);
@@ -210,10 +367,10 @@ void fs_private_dir_copy(const char *private_dir, const char *private_run_dir, c
 			fprintf(stderr, "Error: invalid private %s argument\n", private_dir);
 			exit(1);
 		}
-		duplicate(ptr, private_dir, private_run_dir);
+		duplicate_globbing(ptr, private_dir, private_run_dir);
 
 		while ((ptr = strtok(NULL, ",")) != NULL)
-			duplicate(ptr, private_dir, private_run_dir);
+			duplicate_globbing(ptr, private_dir, private_run_dir);
 		free(dlist);
 		fs_logger_print();
 	}

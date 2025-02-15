@@ -6,18 +6,20 @@ include evince.local
 # Persistent global definitions
 include globals.local
 
-# WARNING: using bookmarks possibly exposes information, including file history from other programs.
-# Add the next line to your evince.local if you need bookmarks support. This also needs additional dbus-user filtering (see below).
-#noblacklist ${HOME}/.local/share/gvfs-metadata
+# WARNING: This exposes information like file history from other programs.
+# You can add a blacklist for it in your evince.local for additional hardening if you can live with some restrictions.
+noblacklist ${HOME}/.local/share/gvfs-metadata
 
 noblacklist ${HOME}/.config/evince
 noblacklist ${DOCUMENTS}
 
+blacklist /usr/libexec
+
+include allow-bin-sh.inc
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -32,7 +34,7 @@ include whitelist-var-common.inc
 
 caps.drop all
 machine-id
-# net none - breaks AppArmor on Ubuntu systems
+#net none # breaks AppArmor on Ubuntu systems
 netfilter
 no3d
 nodvd
@@ -47,20 +49,20 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
-private-bin evince,evince-previewer,evince-thumbnailer
+private-bin evince,evince-previewer,evince-thumbnailer,sh
 private-cache
 private-dev
-private-etc alternatives,fonts,group,ld.so.cache,machine-id,passwd
+private-etc
 # private-lib might break two-page-view on some systems
-private-lib evince,gcc/*/*/libgcc_s.so.*,gcc/*/*/libstdc++.so.*,gconv,gdk-pixbuf-2.*,gio,gvfs/libgvfscommon.so,libdjvulibre.so.*,libgconf-2.so.*,libgraphite2.so.*,libpoppler-glib.so.*,librsvg-2.so.*,libspectre.so.*
+private-lib evince,gcc/*/*/libgcc_s.so.*,gcc/*/*/libstdc++.so.*,gconv,gdk-pixbuf-2.*,gio,gvfs/libgvfscommon.so,libarchive.so.*,libdjvulibre.so.*,libgconf-2.so.*,libgraphite2.so.*,libpoppler-glib.so.*,librsvg-2.so.*,libspectre.so.*
 private-tmp
 
-# dbus-user filtering might break two-page-view on some systems
 dbus-user filter
-# Add the next two lines to your evince.local if you need bookmarks support.
-#dbus-user.talk org.gtk.vfs.Daemon
-#dbus-user.talk org.gtk.vfs.Metadata
+dbus-user.talk ca.desrt.dconf
+dbus-user.talk org.gtk.vfs.Daemon
+dbus-user.talk org.gtk.vfs.Metadata
 dbus-system none
+
+restrict-namespaces

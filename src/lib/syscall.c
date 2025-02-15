@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -59,6 +59,8 @@ static const SyscallEntry syslist[] = {
 #include "../include/syscall_i386.h"
 #elif defined(__arm__)
 #include "../include/syscall_armeabi.h"
+#elif defined(__aarch64__)
+#include "../include/syscall_aarch64.h"
 #else
 #warning "Please submit a syscall table for your architecture"
 #endif
@@ -92,7 +94,16 @@ static const SyscallGroupList sysgroups[] = {
 	  "io_setup,"
 #endif
 #ifdef SYS_io_submit
-	  "io_submit"
+	  "io_submit,"
+#endif
+#ifdef SYS_io_uring_enter
+	  "io_uring_enter,"
+#endif
+#ifdef SYS_io_uring_register
+	  "io_uring_register,"
+#endif
+#ifdef SYS_io_uring_setup
+	  "io_uring_setup"
 #endif
 	},
 	{ .name = "@basic-io", .list =
@@ -101,6 +112,9 @@ static const SyscallGroupList sysgroups[] = {
 #endif
 #ifdef SYS_close
 	  "close,"
+#endif
+#ifdef SYS_close_range
+	  "close_range,"
 #endif
 #ifdef SYS_dup
 	  "dup,"
@@ -212,6 +226,9 @@ static const SyscallGroupList sysgroups[] = {
 #ifdef SYS_perf_event_open
 	  "perf_event_open,"
 #endif
+#ifdef SYS_pidfd_getfd
+	  "pidfd_getfd,"
+#endif
 #ifdef SYS_process_vm_writev
 	  "process_vm_writev,"
 #endif
@@ -253,9 +270,6 @@ static const SyscallGroupList sysgroups[] = {
 #ifdef SYS_fanotify_init
 	  "fanotify_init,"
 #endif
-#ifdef SYS_kcmp
-	  "kcmp,"
-#endif
 #ifdef SYS_add_key
 	  "add_key,"
 #endif
@@ -293,7 +307,7 @@ static const SyscallGroupList sysgroups[] = {
 	  "remap_file_pages,"
 #endif
 #ifdef SYS_set_mempolicy
-	  "set_mempolicy"
+	  "set_mempolicy,"
 #endif
 #ifdef SYS_vmsplice
 	  "vmsplice,"
@@ -352,6 +366,9 @@ static const SyscallGroupList sysgroups[] = {
 #endif
 #ifdef SYS_close
 	  "close,"
+#endif
+#ifdef SYS_close_range
+	  "close_range,"
 #endif
 #ifdef SYS_creat
 	  "creat,"
@@ -505,6 +522,9 @@ static const SyscallGroupList sysgroups[] = {
 #endif
 #ifdef SYS_openat
 	  "openat,"
+#endif
+#ifdef SYS_openat2
+	  "openat2,"
 #endif
 #ifdef SYS_readlink
 	  "readlink,"
@@ -660,6 +680,9 @@ static const SyscallGroupList sysgroups[] = {
 #ifdef SYS_pipe2
 	  "pipe2,"
 #endif
+#ifdef SYS_process_madvise
+	  "process_madvise,"
+#endif
 #ifdef SYS_process_vm_readv
 	  "process_vm_readv,"
 #endif
@@ -734,8 +757,26 @@ static const SyscallGroupList sysgroups[] = {
 #ifdef SYS_chroot
 	  "chroot,"
 #endif
+#ifdef SYS_fsconfig
+	  "fsconfig,"
+#endif
+#ifdef SYS_fsmount
+	  "fsmount,"
+#endif
+#ifdef SYS_fsopen
+	  "fsopen,"
+#endif
+#ifdef SYS_fspick
+	  "fspick,"
+#endif
 #ifdef SYS_mount
 	  "mount,"
+#endif
+#ifdef SYS_move_mount
+	  "move_mount,"
+#endif
+#ifdef SYS_open_tree
+	  "open_tree,"
 #endif
 #ifdef SYS_pivot_root
 	  "pivot_root,"
@@ -988,6 +1029,9 @@ static const SyscallGroupList sysgroups[] = {
 #ifdef SYS_clone
 	  "clone,"
 #endif
+#ifdef SYS_clone3
+	  "clone3,"
+#endif
 #ifdef SYS_execveat
 	  "execveat,"
 #endif
@@ -999,6 +1043,9 @@ static const SyscallGroupList sysgroups[] = {
 #endif
 #ifdef SYS_kill
 	  "kill,"
+#endif
+#ifdef SYS_pidfd_open
+	  "pidfd_open,"
 #endif
 #ifdef SYS_pidfd_send_signal
 	  "pidfd_send_signal,"
@@ -1059,13 +1106,13 @@ static const SyscallGroupList sysgroups[] = {
 #ifdef SYS_pciconfig_write
 	  "pciconfig_write,"
 #endif
-#ifdef SYS_s390_mmio_read
-	  "s390_mmio_read,"
+#ifdef SYS_s390_pci_mmio_read
+	  "s390_pci_mmio_read,"
 #endif
-#ifdef SYS_s390_mmio_write
-	  "s390_mmio_write"
+#ifdef SYS_s390_pci_mmio_write
+	  "s390_pci_mmio_write"
 #endif
-#if !defined(SYS_ioperm) && !defined(SYS_iopl) && !defined(SYS_pciconfig_iobase) && !defined(SYS_pciconfig_read) && !defined(SYS_pciconfig_write) && !defined(SYS_s390_mmio_read) && !defined(SYS_s390_mmio_write)
+#if !defined(SYS_ioperm) && !defined(SYS_iopl) && !defined(SYS_pciconfig_iobase) && !defined(SYS_pciconfig_read) && !defined(SYS_pciconfig_write) && !defined(SYS_s390_pci_mmio_read) && !defined(SYS_s390_pci_mmio_write)
 	  "__dummy_syscall__" // workaround for s390x which doesn't have any of above defined and empty syscall lists are not allowed
 #endif
 	},
@@ -1681,14 +1728,14 @@ void syscalls_in_list(const char *list, const char *slist, int fd, char **prelis
 	sl.postlist = NULL;
 	syscall_check_list(list, syscall_in_list, 0, 0, &sl, native);
 	if (!arg_quiet) {
-		printf("Seccomp list in: %s,", list);
+		fprintf(stderr, "Seccomp list in: %s,", list);
 		if (sl.slist)
-			printf(" check list: %s,", sl.slist);
+			fprintf(stderr, " check list: %s,", sl.slist);
 		if (sl.prelist)
-			printf(" prelist: %s,", sl.prelist);
+			fprintf(stderr, " prelist: %s,", sl.prelist);
 		if (sl.postlist)
-			printf(" postlist: %s", sl.postlist);
-		printf("\n");
+			fprintf(stderr, " postlist: %s", sl.postlist);
+		fprintf(stderr, "\n");
 	}
 	*prelist = sl.prelist;
 	*postlist = sl.postlist;

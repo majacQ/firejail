@@ -9,7 +9,7 @@ include globals.local
 noblacklist ${HOME}/.VirtualBox
 noblacklist ${HOME}/.config/VirtualBox
 noblacklist ${HOME}/VirtualBox VMs
-# noblacklist /usr/bin/virtualbox
+#noblacklist /usr/bin/virtualbox
 noblacklist /usr/lib/virtualbox
 noblacklist /usr/lib64/virtualbox
 
@@ -17,7 +17,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -40,13 +39,12 @@ netfilter
 nodvd
 #nogroups
 notv
-shell none
 tracelog
 
 #disable-mnt
 #private-bin awk,basename,bash,env,gawk,grep,ps,readlink,sh,virtualbox,VirtualBox,VBox*,vbox*,whoami
 private-cache
-private-etc alsa,asound.conf,ca-certificates,conf.d,crypto-policies,dconf,fonts,hostname,hosts,ld.so.cache,localtime,machine-id,pki,pulse,resolv.conf,ssl
+private-etc @tls-ca,@x11,conf.d,vbox
 private-tmp
 
 dbus-user none

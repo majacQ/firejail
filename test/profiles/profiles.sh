@@ -1,6 +1,6 @@
 #!/bin/bash
 # This file is part of Firejail project
-# Copyright (C) 2014-2021 Firejail Authors
+# Copyright (C) 2014-2025 Firejail Authors
 # License GPL v2
 
 export MALLOC_CHECK_=3
@@ -37,18 +37,11 @@ echo "TESTING: profile read-only links (test/profiles/profile_readonly.exp)"
 echo "TESTING: profile no permissions (test/profiles/profile_noperm.exp)"
 ./profile_noperm.exp
 
-# GitHub CI doesn't have a /run/user/$UID directory. Using it to test a small number of profiles.
-UID=`id -u`
-if [ -d "/run/user/$UID" ]; then
-	PROFILES=`ls /etc/firejail/*.profile`
-	echo "TESTING: default profiles installed in /etc"
-else
-	PROFILES=`ls /etc/firejail/transmission*.profile /etc/firejail/fi*.profile /etc/firejail/fl*.profile /etc/firejail/free*.profile`
-	echo "TESTING: small number of default profiles installed in /etc"
-fi
+profiles=( /etc/firejail/transmission*.profile /etc/firejail/fi*.profile /etc/firejail/fl*.profile /etc/firejail/free*.profile )
+echo "TESTING: small number of default profiles installed in /etc"
 
-for PROFILE in $PROFILES
+for profile in "${profiles[@]}"
 do
-	echo "TESTING: $PROFILE"
-	./test-profile.exp $PROFILE
+	echo "TESTING: $profile"
+	./test-profile.exp "$profile"
 done

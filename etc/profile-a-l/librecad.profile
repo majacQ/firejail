@@ -11,7 +11,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -35,13 +34,12 @@ novideo
 protocol unix,inet,inet6
 netfilter
 seccomp
-shell none
 #tracelog
 
 #disable-mnt
 private-bin librecad
 private-dev
-# private-etc cups,drirc,fonts,passwd,xdg
+#private-etc alternatives,cups,drirc,fonts,passwd,xdg
 #private-lib
 private-tmp
 
@@ -49,3 +47,4 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

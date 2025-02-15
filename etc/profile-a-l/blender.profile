@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 # Allow usage of AMD GPU by OpenCL
@@ -36,6 +35,7 @@ nou2f
 protocol unix,inet,inet6,netlink
 # numpy, used by many add-ons, requires the mbind syscall
 seccomp !mbind
-shell none
 
 private-dev
+
+restrict-namespaces

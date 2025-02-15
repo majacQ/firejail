@@ -7,7 +7,6 @@
 #       [sudo] password for netblue:
 #       Reading profile /etc/firejail/server.profile
 #       Reading profile /etc/firejail/disable-common.inc
-#       Reading profile /etc/firejail/disable-passwdmgr.inc
 #       Reading profile /etc/firejail/disable-programs.inc
 #
 #       ** Note: you can use --noprofile to disable server.profile **
@@ -34,59 +33,63 @@ include globals.local
 
 noblacklist /sbin
 noblacklist /usr/sbin
-# noblacklist /var/opt
+noblacklist /etc/init.d
+#noblacklist /var/opt
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}/wayland-*
 
 include disable-common.inc
-# include disable-devel.inc
-# include disable-exec.inc
-# include disable-interpreters.inc
-include disable-passwdmgr.inc
+#include disable-devel.inc
+#include disable-exec.inc
+#include disable-interpreters.inc
 include disable-programs.inc
 include disable-write-mnt.inc
+include disable-x11.inc
 include disable-xdg.inc
 
-# include whitelist-runuser-common.inc
-# include whitelist-usr-share-common.inc
-# include whitelist-var-common.inc
+#include whitelist-runuser-common.inc
+#include whitelist-usr-share-common.inc
+#include whitelist-var-common.inc
 
-apparmor
+# people use to install servers all over the place!
+# apparmor runs executable only from default system locations
+#apparmor
 caps
-# ipc-namespace
+#ipc-namespace
 machine-id
-# netfilter /etc/firejail/webserver.net
+#netfilter /etc/firejail/webserver.net
 no3d
 nodvd
-# nogroups
+#nogroups
 noinput
-# nonewprivs
-# noroot
+nonewprivs
+#noroot
 nosound
 notv
 nou2f
 novideo
-# protocol unix,inet,inet6,netlink
+protocol unix,inet,inet6,netlink,packet
 seccomp
-# shell none
+tab # allow tab completion
 
 disable-mnt
 private
-# private-bin program
-# private-cache
+#private-bin program
+#private-cache
 private-dev
 # see /usr/share/doc/firejail/profile.template for more common private-etc paths.
-# private-etc alternatives
-# private-lib
-# private-opt none
+#private-etc alternatives
+#private-lib
+#private-opt none
 private-tmp
+#writable-run-user
+#writable-var
+#writable-var-log
 
 dbus-user none
-# dbus-system none
+#dbus-system none
 
-# memory-deny-write-execute
-# read-only ${HOME}
-# writable-run-user
-# writable-var
-# writable-var-log
+#deterministic-shutdown
+#memory-deny-write-execute
+#read-only ${HOME}
+#restrict-namespaces

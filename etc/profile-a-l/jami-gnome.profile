@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 #include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.config/jami
@@ -34,10 +33,10 @@ noroot
 notv
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
 disable-mnt
 private-dev
 private-tmp
 
 env QT_QPA_PLATFORM=xcb
+restrict-namespaces

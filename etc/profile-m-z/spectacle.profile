@@ -19,11 +19,10 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
-mkfile  ${HOME}/.config/spectaclerc
+mkfile ${HOME}/.config/spectaclerc
 whitelist ${HOME}/.config/spectaclerc
 whitelist ${PICTURES}
 whitelist /usr/share/kconf_update/spectacle_newConfig.upd
@@ -50,14 +49,13 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin spectacle
 private-cache
 private-dev
-private-etc alternatives,fonts,ld.so.cache,ld.so.conf,ld.so.conf.d
+private-etc
 private-tmp
 
 dbus-user filter
@@ -67,3 +65,5 @@ dbus-user.talk org.freedesktop.FileManager1
 #dbus-user.talk org.kde.JobViewServer
 #dbus-user.talk org.kde.kglobalaccel
 dbus-system none
+
+restrict-namespaces

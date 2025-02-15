@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.vultures
@@ -33,7 +32,6 @@ notv
 novideo
 #protocol unix,netlink
 #seccomp
-shell none
 
 disable-mnt
 #private
@@ -44,3 +42,5 @@ writable-var
 
 dbus-user none
 dbus-system none
+
+#restrict-namespaces

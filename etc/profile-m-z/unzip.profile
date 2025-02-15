@@ -10,7 +10,5 @@ include globals.local
 # GNOME Shell integration (chrome-gnome-shell)
 noblacklist ${HOME}/.local/share/gnome-shell
 
-private-etc alternatives,group,localtime,passwd
-
 # Redirect
 include archiver-common.profile

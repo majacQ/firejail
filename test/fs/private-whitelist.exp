@@ -1,6 +1,6 @@
 #!/usr/bin/expect -f
 # This file is part of Firejail project
-# Copyright (C) 2014-2021 Firejail Authors
+# Copyright (C) 2014-2025 Firejail Authors
 # License GPL v2
 
 set timeout 10
@@ -10,7 +10,7 @@ match_max 100000
 send -- "firejail --private --whitelist=/tmp/.X11-unix\r"
 expect {
 	timeout {puts "TESTING ERROR 1\n";exit}
-	"Child process initialized"
+	-re "Child process initialized in \[0-9\]+.\[0-9\]+ ms"
 }
 after 100
 
@@ -32,9 +32,9 @@ send -- "ls -a ~ | wc -l\r"
 expect {
 	timeout {puts "TESTING ERROR 4\n";exit}
 	"3" {puts "3\n"}
-        "4" {puts "4\n"}
-        "5" {puts "5\n"}
-        "6" {puts "6\n"}
+	"4" {puts "4\n"}
+	"5" {puts "5\n"}
+	"6" {puts "6\n"}
 }
 
 sleep 1

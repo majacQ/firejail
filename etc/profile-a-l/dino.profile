@@ -1,5 +1,5 @@
 # Firejail profile for dino
-# Description: Modern XMPP Chat Client using GTK+/Vala
+# Description: Modern XMPP Chat Client using GTK/Vala
 # This file is overwritten after every install/update
 # Persistent local customizations
 include dino.local
@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -33,16 +32,27 @@ nonewprivs
 noroot
 notv
 nou2f
-protocol unix,inet,inet6
+protocol unix,inet,inet6,netlink
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin dino
 private-dev
-# private-etc alternatives,ca-certificates,crypto-policies,fonts,pki,ssl -- breaks server connection
+# breaks server connection
+#private-etc alternatives,ca-certificates,crypto-policies,fonts,pki,ssl
 private-tmp
 
-dbus-system none
+dbus-user filter
+# Integration with notification and other desktop environment functionalities
+dbus-user.own im.dino.Dino
+# dconf integration
+dbus-user.talk ca.desrt.dconf
+# Notification support
+dbus-user.talk org.freedesktop.Notifications
+dbus-system filter
+# Integration with systemd-logind or elogind
+dbus-system.talk org.freedesktop.login1
+
+restrict-namespaces

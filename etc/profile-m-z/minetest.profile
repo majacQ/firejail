@@ -6,8 +6,9 @@ include minetest.local
 # Persistent global definitions
 include globals.local
 
-# In order to save in-game screenshots to a persistent location edit ~/.minetest/minetest.conf:
-#   screenshot_path = /home/<USER>/.minetest/screenshots
+# In order to save in-game screenshots to a persistent location,
+# edit ~/.minetest/minetest.conf:
+# screenshot_path = /home/<USER>/.minetest/screenshots
 
 noblacklist ${HOME}/.cache/minetest
 noblacklist ${HOME}/.minetest
@@ -19,7 +20,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -49,7 +49,6 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
@@ -63,3 +62,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

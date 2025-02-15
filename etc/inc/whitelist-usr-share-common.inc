@@ -12,6 +12,7 @@ whitelist /usr/share/cursors
 whitelist /usr/share/dconf
 whitelist /usr/share/distro-info
 whitelist /usr/share/drirc.d
+whitelist /usr/share/egl
 whitelist /usr/share/enchant
 whitelist /usr/share/enchant-2
 whitelist /usr/share/file
@@ -28,6 +29,7 @@ whitelist /usr/share/gtk-engines
 whitelist /usr/share/gtksourceview-3.0
 whitelist /usr/share/gtksourceview-4
 whitelist /usr/share/hunspell
+whitelist /usr/share/hyphen
 whitelist /usr/share/hwdata
 whitelist /usr/share/icons
 whitelist /usr/share/icu
@@ -38,6 +40,7 @@ whitelist /usr/share/kxmlgui5
 whitelist /usr/share/libdrm
 whitelist /usr/share/libthai
 whitelist /usr/share/locale
+whitelist /usr/share/locale-langpack
 whitelist /usr/share/mime
 whitelist /usr/share/misc
 whitelist /usr/share/Modules
@@ -45,6 +48,7 @@ whitelist /usr/share/myspell
 whitelist /usr/share/p11-kit
 whitelist /usr/share/perl
 whitelist /usr/share/perl5
+whitelist /usr/share/pipewire
 whitelist /usr/share/pixmaps
 whitelist /usr/share/pki
 whitelist /usr/share/plasma
@@ -53,6 +57,8 @@ whitelist /usr/share/qt
 whitelist /usr/share/qt4
 whitelist /usr/share/qt5
 whitelist /usr/share/qt5ct
+whitelist /usr/share/qt6
+whitelist /usr/share/qt6ct
 whitelist /usr/share/sounds
 whitelist /usr/share/tcl8.6
 whitelist /usr/share/tcltk

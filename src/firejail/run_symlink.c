@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -22,7 +22,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-extern char *find_in_path(const char *program);
 
 void run_symlink(int argc, char **argv, int run_as_is) {
 	EUID_ASSERT();
@@ -77,6 +76,8 @@ void run_symlink(int argc, char **argv, int run_as_is) {
 		a[i + 2] = argv[i + 1];
 	}
 	a[i + 2] = NULL;
+	if (env_get("LD_PRELOAD") != NULL)
+		fprintf(stderr, "run_symlink: LD_PRELOAD is: '%s'\n", env_get("LD_PRELOAD"));
 	assert(env_get("LD_PRELOAD") == NULL);
 	assert(getenv("LD_PRELOAD") == NULL);
 	execvp(a[0], a);

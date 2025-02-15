@@ -28,7 +28,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -63,7 +62,6 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 # Add your own diff viewer,editor,pinentry program to private-bin in your git-cola.local.
@@ -71,7 +69,7 @@ tracelog
 private-bin basename,bash,cola,envsubst,gettext,git,git-cola,git-dag,git-gui,gitk,gpg,gpg-agent,nano,ps,python*,sh,ssh,ssh-agent,tclsh,tr,wc,which,xed
 private-cache
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,dconf,fonts,gcrypt,gitconfig,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,localtime,login.defs,machine-id,mime.types,nsswitch.conf,passwd,pki,resolv.conf,selinux,ssh,ssl,X11,xdg
+private-etc @tls-ca,@x11,gitconfig,host.conf,mime.types,ssh
 private-tmp
 writable-run-user
 
@@ -86,3 +84,5 @@ read-only ${HOME}/.git-credentials
 
 # Add 'ignore read-only ${HOME}/.ssh' to your git-cola.local if you need to allow hosts.
 read-only ${HOME}/.ssh
+
+restrict-namespaces

@@ -15,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -47,13 +46,12 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin flameshot
 private-cache
-private-etc alternatives,ca-certificates,crypto-policies,fonts,ld.so.conf,machine-id,pki,resolv.conf,ssl
+private-etc @tls-ca
 private-dev
 #private-tmp
 
@@ -64,6 +62,8 @@ dbus-user.talk org.freedesktop.Notifications
 dbus-user.talk org.freedesktop.portal.Desktop
 dbus-user.talk org.gnome.Shell
 dbus-user.talk org.kde.KWin
-dbus-user.talk org.kde.StatusNotifierWatcher
-dbus-user.own org.kde.*
+?ALLOW_TRAY: dbus-user.talk org.kde.StatusNotifierWatcher
+?ALLOW_TRAY: dbus-user.own org.kde.*
 dbus-system none
+
+restrict-namespaces

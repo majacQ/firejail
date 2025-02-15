@@ -17,7 +17,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -34,7 +33,7 @@ include whitelist-var-common.inc
 apparmor
 caps.drop all
 machine-id
-# net none - issues on older versions
+#net none # issues on older versions
 no3d
 nodvd
 nogroups
@@ -47,7 +46,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
@@ -55,4 +53,5 @@ private-bin font-manager,python*,yelp
 private-dev
 private-tmp
 
-#memory-deny-write-execute - breaks on Arch (see issue #1803)
+#memory-deny-write-execute # breaks on Arch (see issue #1803)
+restrict-namespaces

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -180,7 +180,7 @@ static void dbus_check_bus_profile(char const *prefix, DbusPolicy *policy) {
 		}
 	}
 
-	if (num_matches > 0) {
+	if (num_matches > 0 && !arg_quiet) {
 		assert(first_match != NULL);
 		if (num_matches == 1) {
 			fprintf(stderr, "Ignoring \"%s\".\n", first_match);
@@ -258,16 +258,12 @@ static char *find_user_socket_by_format(char *format) {
 	if (asprintf(&dbus_user_socket, format, (int) getuid()) == -1)
 		errExit("asprintf");
 	struct stat s;
-	if (stat(dbus_user_socket, &s) == -1) {
-		if (errno == ENOENT)
-			goto fail;
-		return NULL;
-		errExit("stat");
-	}
+	if (lstat(dbus_user_socket, &s) == -1)
+		goto fail;
 	if (!S_ISSOCK(s.st_mode))
 		goto fail;
 	return dbus_user_socket;
- fail:
+fail:
 	free(dbus_user_socket);
 	return NULL;
 }
@@ -301,11 +297,12 @@ void dbus_proxy_start(void) {
 	if (dbus_proxy_pid == -1)
 		errExit("fork");
 	if (dbus_proxy_pid == 0) {
-		int i;
-		for (i = STDERR_FILENO + 1; i < FIREJAIL_MAX_FD; i++) {
-			if (i != status_pipe[1] && i != args_pipe[0])
-				close(i); // close open files
-		}
+		// close open files
+		int keep[2];
+		keep[0] = status_pipe[1];
+		keep[1] = args_pipe[0];
+		close_all(keep, ARRAY_SIZE(keep));
+
 		if (arg_dbus_log_file != NULL) {
 			int output_fd = creat(arg_dbus_log_file, 0666);
 			if (output_fd < 0)
@@ -426,12 +423,8 @@ static void socket_overlay(char *socket_path, char *proxy_path) {
 		errno = ENOTSOCK;
 		errExit("mounting DBus proxy socket");
 	}
-	char *proxy_fd_path;
-	if (asprintf(&proxy_fd_path, "/proc/self/fd/%d", fd) == -1)
-		errExit("asprintf");
-	if (mount(proxy_path, socket_path, NULL, MS_BIND | MS_REC, NULL) == -1)
+	if (bind_mount_fd_to_path(fd, socket_path))
 		errExit("mount bind");
-	free(proxy_fd_path);
 	close(fd);
 }
 
@@ -478,7 +471,7 @@ void dbus_apply_policy(void) {
 	create_empty_dir_as_root(RUN_DBUS_DIR, 0755);
 
 	if (arg_dbus_user != DBUS_POLICY_ALLOW) {
-		create_empty_file_as_root(RUN_DBUS_USER_SOCKET, 0700);
+		create_empty_file_as_root(RUN_DBUS_USER_SOCKET, 0600);
 
 		if (arg_dbus_user == DBUS_POLICY_FILTER) {
 			assert(dbus_user_proxy_socket != NULL);
@@ -517,7 +510,7 @@ void dbus_apply_policy(void) {
 	}
 
 	if (arg_dbus_system != DBUS_POLICY_ALLOW) {
-		create_empty_file_as_root(RUN_DBUS_SYSTEM_SOCKET, 0700);
+		create_empty_file_as_root(RUN_DBUS_SYSTEM_SOCKET, 0600);
 
 		if (arg_dbus_system == DBUS_POLICY_FILTER) {
 			assert(dbus_system_proxy_socket != NULL);

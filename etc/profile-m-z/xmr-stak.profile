@@ -11,12 +11,12 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.xmr-stak
+whitelist /opt/cuda
 include whitelist-var-common.inc
 
 caps.drop all
@@ -33,15 +33,14 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 disable-mnt
 private ${HOME}/.xmr-stak
 private-bin xmr-stak
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,nsswitch.conf,pki,resolv.conf,ssl
+private-etc @tls-ca
 #private-lib libxmrstak_opencl_backend,libxmrstak_cuda_backend
-private-opt cuda
 private-tmp
 
 memory-deny-write-execute
+restrict-namespaces

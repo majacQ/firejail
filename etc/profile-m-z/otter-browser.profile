@@ -10,26 +10,25 @@ include globals.local
 
 noblacklist ${HOME}/.cache/Otter
 noblacklist ${HOME}/.config/otter
-noblacklist ${HOME}/.pki
 noblacklist ${HOME}/.local/share/pki
+noblacklist ${HOME}/.pki
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
 mkdir ${HOME}/.cache/Otter
 mkdir ${HOME}/.config/otter
-mkdir ${HOME}/.pki
 mkdir ${HOME}/.local/share/pki
+mkdir ${HOME}/.pki
 whitelist ${DOWNLOADS}
 whitelist ${HOME}/.cache/Otter
 whitelist ${HOME}/.config/otter
-whitelist ${HOME}/.pki
 whitelist ${HOME}/.local/share/pki
+whitelist ${HOME}/.pki
 whitelist /usr/share/otter-browser
 include whitelist-common.inc
 include whitelist-runuser-common.inc
@@ -48,13 +47,14 @@ notv
 ?BROWSER_DISABLE_U2F: nou2f
 protocol unix,inet,inet6,netlink
 seccomp !chroot
-shell none
 
 disable-mnt
 private-bin bash,otter-browser,sh,which
 private-cache
 ?BROWSER_DISABLE_U2F: private-dev
-private-etc alternatives,asound.conf,ca-certificates,crypto-policies,dconf,fonts,group,gtk-2.0,gtk-3.0,hostname,hosts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,localtime,machine-id,mailcap,mime.types,nsswitch.conf,pango,passwd,pki,pulse,resolv.conf,selinux,ssl,X11,xdg
+private-etc @tls-ca,@x11,mailcap,mime.types
 private-tmp
 
 dbus-system none
+
+#restrict-namespaces

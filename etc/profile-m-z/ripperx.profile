@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -33,7 +32,6 @@ notv
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 private-cache
@@ -42,3 +40,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

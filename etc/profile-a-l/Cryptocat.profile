@@ -10,7 +10,6 @@ noblacklist ${HOME}/.config/Cryptocat
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -25,8 +24,9 @@ notv
 nou2f
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
 private-cache
 private-dev
 private-tmp
+
+restrict-namespaces

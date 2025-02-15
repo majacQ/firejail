@@ -11,7 +11,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -23,16 +22,16 @@ no3d
 nogroups
 noinput
 nonewprivs
-# nosound - disabled for knotify
+#nosound # disabled for knotify
 noroot
 nou2f
 novideo
 notv
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
 private-bin kbuildsycoca4,kded4,kdeinit4,knotify4
 private-dev
 private-tmp
 
+restrict-namespaces

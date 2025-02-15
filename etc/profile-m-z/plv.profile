@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -40,14 +39,13 @@ notv
 nou2f
 novideo
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin plv
 private-cache
 private-dev
-private-etc alternatives,fonts
+private-etc
 private-opt none
 private-tmp
 writable-var-log
@@ -55,7 +53,8 @@ writable-var-log
 dbus-user none
 dbus-system none
 
-#memory-deny-write-execute - breaks opening file-chooser
+#memory-deny-write-execute # breaks opening file-chooser
 read-only ${HOME}
 read-write ${HOME}/.config/PacmanLogViewer
 read-only /var/log/pacman.log
+restrict-namespaces

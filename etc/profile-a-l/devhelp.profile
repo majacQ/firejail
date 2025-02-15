@@ -6,12 +6,10 @@ include devhelp.local
 # Persistent global definitions
 include globals.local
 
-
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -24,7 +22,7 @@ include whitelist-usr-share-common.inc
 
 apparmor
 caps.drop all
-# net none - makes settings immutable
+#net none # makes settings immutable
 nodvd
 nogroups
 noinput
@@ -36,19 +34,19 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin devhelp
 private-cache
 private-dev
-private-etc alternatives,dconf,fonts,ld.so.cache,machine-id,ssl
+private-etc @tls-ca,@x11
 private-tmp
 
 # makes settings immutable
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
 
-#memory-deny-write-execute - breaks on Arch (see issue #1803)
+#memory-deny-write-execute # breaks on Arch (see issue #1803)
 read-only ${HOME}
+restrict-namespaces

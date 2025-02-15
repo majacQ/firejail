@@ -10,14 +10,12 @@ noblacklist ${HOME}/.config/artha.conf
 noblacklist ${HOME}/.config/artha.log
 noblacklist ${HOME}/.config/enchant
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}/wayland-*
 
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -37,7 +35,7 @@ include whitelist-var-common.inc
 apparmor
 caps.drop all
 ipc-namespace
-# net none - breaks on Ubuntu
+#net none # breaks on Ubuntu
 no3d
 nodvd
 nogroups
@@ -50,18 +48,21 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin artha,enchant,notify-send
 private-cache
 private-dev
-private-etc alternatives,fonts,machine-id
+private-etc
 private-lib libnotify.so.*
 private-tmp
 
-# dbus-user none
-# dbus-system none
+dbus-user filter
+dbus-user.own org.artha.unique.*
+dbus-user.talk org.freedesktop.Notifications
+?ALLOW_TRAY: dbus-user.talk org.kde.StatusNotifierWatcher
+dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

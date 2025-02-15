@@ -1,6 +1,7 @@
 # Firejail profile for pdftotext
 # Description: Portable Document Format (PDF) to text converter
 # This file is overwritten after every install/update
+quiet
 # Persistent local customizations
 include pdftotext.local
 # Persistent global definitions
@@ -14,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -42,15 +42,16 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 x11 none
 
 private-bin pdftotext
 private-cache
 private-dev
-private-etc alternatives
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

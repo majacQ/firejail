@@ -5,6 +5,9 @@ include clion.local
 # Persistent global definitions
 include globals.local
 
+noblacklist ${HOME}/.config/JetBrains/CLion*
+noblacklist ${HOME}/.cache/JetBrains/CLion*
+noblacklist ${HOME}/.clion*
 noblacklist ${HOME}/.CLion*
 noblacklist ${HOME}/.config/git
 noblacklist ${HOME}/.gitconfig
@@ -17,7 +20,6 @@ noblacklist ${HOME}/.tooling
 include allow-ssh.inc
 
 include disable-common.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 caps.drop all
@@ -32,10 +34,10 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-cache
 private-dev
-# private-tmp
+#private-tmp
 
 noexec /tmp
+restrict-namespaces

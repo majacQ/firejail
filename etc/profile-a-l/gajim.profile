@@ -1,5 +1,5 @@
 # Firejail profile for gajim
-# Description: GTK+-based Jabber client
+# Description: GTK-based Jabber client
 # This file is overwritten after every install/update
 # Persistent local customizations
 include gajim.local
@@ -19,7 +19,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 # Add 'ignore include disable-xdg.inc' to your gajim.local if you need to whitelist folders other than ~/Downloads.
 include disable-xdg.inc
@@ -34,6 +33,7 @@ whitelist ${HOME}/.config/gajim
 whitelist ${HOME}/.local/share/gajim
 whitelist ${DOWNLOADS}
 whitelist ${RUNUSER}/gnupg
+whitelist /usr/share/gajim
 whitelist /usr/share/gnupg
 whitelist /usr/share/gnupg2
 include whitelist-common.inc
@@ -53,14 +53,13 @@ notv
 nou2f
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin bash,gajim,gajim-history-manager,gpg,gpg2,paplay,python*,sh,zsh
 private-cache
 private-dev
-private-etc alsa,alternatives,asound.conf,ca-certificates,crypto-policies,fonts,group,hostname,hosts,ld.so.cache,ld.so.conf,localtime,machine-id,passwd,pki,pulse,resolv.conf,ssl,xdg
+private-etc @tls-ca,@x11
 private-tmp
 writable-run-user
 
@@ -77,4 +76,5 @@ dbus-system.talk org.freedesktop.login1
 # Add the next line to your gajim.local to enable location plugin support.
 #dbus-system.talk org.freedesktop.GeoClue2
 
+restrict-namespaces
 join-or-start gajim

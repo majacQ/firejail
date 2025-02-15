@@ -1,5 +1,5 @@
 # Firejail profile for corebird
-# Description: Native Gtk+ Twitter client for the Linux desktop
+# Description: Native GTK Twitter client for the Linux desktop
 # This file is overwritten after every install/update
 # Persistent local customizations
 include corebird.local
@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -31,9 +30,9 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-bin corebird
 private-dev
 private-tmp
 
+restrict-namespaces

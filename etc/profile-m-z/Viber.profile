@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.ViberPC
@@ -30,9 +29,10 @@ noroot
 notv
 protocol unix,inet,inet6
 seccomp !chroot
-shell none
 
 disable-mnt
-private-bin awk,bash,dig,sh,Viber
-private-etc alternatives,asound.conf,ca-certificates,crypto-policies,fonts,hosts,localtime,machine-id,mailcap,nsswitch.conf,pki,proxychains.conf,pulse,resolv.conf,ssl,X11
+private-bin Viber,awk,bash,dig,sh
+private-etc @tls-ca,@x11,mailcap,proxychains.conf
 private-tmp
+
+#restrict-namespaces

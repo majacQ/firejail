@@ -15,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.claws-mail
@@ -39,17 +38,17 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 
 disable-mnt
 private-bin bash,clawsker,perl,sh,which
 private-cache
 private-dev
-private-etc alternatives,fonts
+private-etc
 private-lib girepository-1.*,libdbus-glib-1.so.*,libetpan.so.*,libgirepository-1.*,libgtk-3.so.*,libgtk-x11-2.0.so.*,libstartup-notification-1.so.*,perl*
 private-tmp
 
 dbus-user none
 dbus-system none
 
-#memory-deny-write-execute - breaks on Arch (see issue #1803)
+#memory-deny-write-execute # breaks on Arch (see issue #1803)
+restrict-namespaces

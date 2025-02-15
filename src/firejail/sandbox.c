@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -19,6 +19,7 @@
 */
 
 #include "firejail.h"
+#include "../include/gcov_wrapper.h"
 #include "../include/seccomp.h"
 #include <sys/mman.h>
 #include <sys/mount.h>
@@ -49,8 +50,7 @@
 #include <sys/apparmor.h>
 #endif
 
-
-static int force_nonewprivs = 0;
+extern int just_run_the_shell;
 
 static int monitored_pid = 0;
 static void sandbox_handler(int sig){
@@ -87,9 +87,9 @@ static void sandbox_handler(int sig){
 
 	// broadcast a SIGKILL
 	kill(-1, SIGKILL);
-	flush_stdin();
 
-	exit(sig);
+	flush_stdin();
+	exit(128 + sig);
 }
 
 static void install_handler(void) {
@@ -127,10 +127,17 @@ static void set_caps(void) {
 }
 
 #ifdef HAVE_APPARMOR
-void set_apparmor(void) {
+static void set_apparmor(void) {
 	EUID_ASSERT();
 	if (checkcfg(CFG_APPARMOR) && arg_apparmor) {
-		if (aa_change_onexec("firejail-default")) {
+		int res = 0;
+		if(apparmor_replace){
+			fwarning("Replacing profile instead of stacking it. It is a legacy behavior that can result in relaxation of the protection. It is here as a temporary measure to unbreak the software that has been broken by switching to the stacking behavior.\n");
+			res = aa_change_onexec(apparmor_profile);
+		} else {
+			res = aa_stack_onexec(apparmor_profile);
+		}
+		if (res) {
 			fwarning("Cannot confine the application using AppArmor.\n"
 				"Maybe firejail-default AppArmor profile is not loaded into the kernel.\n"
 				"As root, run \"aa-enforce firejail-default\" to load it.\n");
@@ -204,7 +211,7 @@ static void save_umask(void) {
 }
 
 static char *create_join_file(void) {
-	int fd = open(RUN_JOIN_FILE, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC, S_IRUSR | S_IWRITE | S_IRGRP | S_IROTH);
+	int fd = open(RUN_JOIN_FILE, O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (fd == -1)
 		errExit("open");
 	if (ftruncate(fd, 1) == -1)
@@ -227,7 +234,7 @@ static void sandbox_if_up(Bridge *br) {
 	if (br->arg_ip_none == 1);	// do nothing
 	else if (br->arg_ip_none == 0 && br->macvlan == 0) {
 		if (br->ipsandbox == br->ip) {
-			fprintf(stderr, "Error: %d.%d.%d.%d is interface %s address.\n", PRINT_IP(br->ipsandbox), br->dev);
+			fprintf(stderr, "Error: %d.%d.%d.%d is interface %s address, exiting...\n", PRINT_IP(br->ipsandbox), br->dev);
 			exit(1);
 		}
 
@@ -245,13 +252,17 @@ static void sandbox_if_up(Bridge *br) {
 			br->ipsandbox = arp_assign(dev, br); //br->ip, br->mask);
 		else {
 			if (br->ipsandbox == br->ip) {
-				fprintf(stderr, "Error: %d.%d.%d.%d is interface %s address.\n", PRINT_IP(br->ipsandbox), br->dev);
+				fprintf(stderr, "Error: %d.%d.%d.%d is interface %s address, exiting...\n", PRINT_IP(br->ipsandbox), br->dev);
+				exit(1);
+			}
+			if (br->ipsandbox == cfg.defaultgw) {
+				fprintf(stderr, "Error: %d.%d.%d.%d is the default gateway, exiting...\n", PRINT_IP(br->ipsandbox));
 				exit(1);
 			}
 
 			uint32_t rv = arp_check(dev, br->ipsandbox);
 			if (rv) {
-				fprintf(stderr, "Error: the address %d.%d.%d.%d is already in use.\n", PRINT_IP(br->ipsandbox));
+				fprintf(stderr, "Error: the address %d.%d.%d.%d is already in use, exiting...\n", PRINT_IP(br->ipsandbox));
 				exit(1);
 			}
 		}
@@ -263,7 +274,7 @@ static void sandbox_if_up(Bridge *br) {
 	}
 
 	if (br->ip6sandbox)
-		 net_if_ip6(dev, br->ip6sandbox);
+		net_if_ip6(dev, br->ip6sandbox);
 }
 
 static void chk_chroot(void) {
@@ -352,6 +363,15 @@ static int monitor_application(pid_t app_pid) {
 		if (arg_debug)
 			printf("Sandbox monitor: waitpid %d retval %d status %d\n", monitored_pid, rv, status);
 
+		if (arg_deterministic_shutdown) {
+			if (arg_debug)
+				printf("Sandbox monitor: monitored process died, shut down the sandbox\n");
+			kill(-1, SIGTERM);
+			usleep(100000);
+			kill(-1, SIGKILL);
+			break;
+		}
+
 		DIR *dir;
 		if (!(dir = opendir("/proc"))) {
 			// sleep 2 seconds and try again
@@ -373,18 +393,6 @@ static int monitor_application(pid_t app_pid) {
 			if ((pid_t) pid == dhclient4_pid || (pid_t) pid == dhclient6_pid)
 				continue;
 
-			// todo: make this generic
-			// Dillo browser leaves a dpid process running, we need to shut it down
-			int found = 0;
-			if (strcmp(cfg.command_name, "dillo") == 0) {
-				char *pidname = pid_proc_comm(pid);
-				if (pidname && strcmp(pidname, "dpid") == 0)
-					found = 1;
-				free(pidname);
-			}
-			if (found)
-				break;
-
 			monitored_pid = pid;
 			break;
 		}
@@ -402,7 +410,6 @@ static void print_time(void) {
 	float delta = timetrace_end();
 	fmessage("Child process initialized in %.02f ms\n", delta);
 }
-
 
 // check execute permissions for the program
 // this is done typically by the shell
@@ -460,10 +467,45 @@ static int ok_to_run(const char *program) {
 	return 0;
 }
 
+static void close_file_descriptors(void) {
+	if (arg_keep_fd_all)
+		return;
+
+	if (arg_debug)
+		printf("Closing non-standard file descriptors\n");
+
+	if (!cfg.keep_fd) {
+		close_all(NULL, 0);
+		return;
+	}
+
+	size_t sz = 0;
+	int *keep = str_to_int_array(cfg.keep_fd, &sz);
+	if (!keep) {
+		fprintf(stderr, "Error: invalid keep-fd option\n");
+		exit(1);
+	}
+	close_all(keep, sz);
+	free(keep);
+}
+
+
 void start_application(int no_sandbox, int fd, char *set_sandbox_status) {
-	// set environment
-	if (no_sandbox == 0)
+	if (no_sandbox == 0) {
+#ifdef HAVE_APPARMOR
+		set_apparmor();
+#endif
+		close_file_descriptors();
+
+		// set nice and rlimits
+		if (arg_nice)
+			set_nice(cfg.nice);
+		set_rlimits();
+
 		env_defaults();
+	}
+
+	// set environment
 	env_apply_all();
 
 	// restore original umask
@@ -474,10 +516,43 @@ void start_application(int no_sandbox, int fd, char *set_sandbox_status) {
 		printf("LD_PRELOAD=%s\n", getenv("LD_PRELOAD"));
 	}
 
+#ifdef HAVE_LANDLOCK
+	//****************************
+	// Configure Landlock
+	//****************************
+	if (arg_landlock_enforce && ll_restrict(0)) {
+		// It isn't safe to continue if Landlock self-restriction was
+		// enabled and the "landlock_restrict_self" syscall has failed.
+		fprintf(stderr, "Error: ll_restrict() failed, exiting...\n");
+		exit(1);
+	} else {
+		if (arg_debug)
+			fprintf(stderr, "Not enforcing Landlock\n");
+	}
+#endif
+
+	if (just_run_the_shell) {
+		char *arg[2];
+		arg[0] = cfg.usershell;
+		arg[1] = NULL;
+
+		if (!arg_command && !arg_quiet)
+			print_time();
+
+		__gcov_dump();
+
+		seccomp_install_filters();
+
+		if (set_sandbox_status)
+			*set_sandbox_status = SANDBOX_DONE;
+		execvp(arg[0], arg);
+
+
+	}
 	//****************************************
 	// start the program without using a shell
 	//****************************************
-	if (arg_shell_none) {
+	else if (!arg_appimage && !arg_doubledash) {
 		if (arg_debug) {
 			int i;
 			for (i = cfg.original_program_index; i < cfg.original_argc; i++) {
@@ -500,9 +575,8 @@ void start_application(int no_sandbox, int fd, char *set_sandbox_status) {
 			exit(1);
 		}
 
-#ifdef HAVE_GCOV
 		__gcov_dump();
-#endif
+
 		seccomp_install_filters();
 
 		if (set_sandbox_status)
@@ -512,27 +586,24 @@ void start_application(int no_sandbox, int fd, char *set_sandbox_status) {
 	//****************************************
 	// start the program using a shell
 	//****************************************
-	else {
-		assert(cfg.shell);
-
+	else { // appimage or double-dash
 		char *arg[5];
 		int index = 0;
-		arg[index++] = cfg.shell;
+		assert(cfg.usershell);
+		arg[index++] = cfg.usershell;
 		if (cfg.command_line) {
 			if (arg_debug)
-				printf("Running %s command through %s\n", cfg.command_line, cfg.shell);
+				printf("Running %s command through %s\n", cfg.command_line, cfg.usershell);
 			arg[index++] = "-c";
-			if (arg_doubledash)
-				arg[index++] = "--";
 			arg[index++] = cfg.command_line;
 		}
 		else if (login_shell) {
 			if (arg_debug)
-				printf("Starting %s login shell\n", cfg.shell);
+				printf("Starting %s login shell\n", cfg.usershell);
 			arg[index++] = "-l";
 		}
 		else if (arg_debug)
-			printf("Starting %s shell\n", cfg.shell);
+			printf("Starting %s shell\n", cfg.usershell);
 
 		assert(index < 5);
 		arg[index] = NULL;
@@ -540,7 +611,7 @@ void start_application(int no_sandbox, int fd, char *set_sandbox_status) {
 		if (arg_debug) {
 			char *msg;
 			if (asprintf(&msg, "sandbox %d, execvp into %s",
-				sandbox_pid, cfg.command_line ? cfg.command_line : cfg.shell) == -1)
+				sandbox_pid, cfg.command_line ? cfg.command_line : cfg.usershell) == -1)
 				errExit("asprintf");
 			logmsg(msg);
 			free(msg);
@@ -556,9 +627,8 @@ void start_application(int no_sandbox, int fd, char *set_sandbox_status) {
 		if (!arg_command && !arg_quiet)
 			print_time();
 
-#ifdef HAVE_GCOV
 		__gcov_dump();
-#endif
+
 		seccomp_install_filters();
 
 		if (set_sandbox_status)
@@ -578,7 +648,6 @@ static void enforce_filters(void) {
 	fmessage("\n** Warning: dropping all Linux capabilities and setting NO_NEW_PRIVS prctl **\n\n");
 	// enforce NO_NEW_PRIVS
 	arg_nonewprivs = 1;
-	force_nonewprivs = 1;
 
 	// disable all capabilities
 	arg_caps_drop_all = 1;
@@ -596,12 +665,12 @@ int sandbox(void* sandbox_arg) {
 	if (arg_debug)
 		printf("Initializing child process\n");
 
- 	// close each end of the unused pipes
- 	close(parent_to_child_fds[1]);
- 	close(child_to_parent_fds[0]);
+	// close each end of the unused pipes
+	close(parent_to_child_fds[1]);
+	close(child_to_parent_fds[0]);
 
- 	// wait for parent to do base setup
- 	wait_for_other(parent_to_child_fds[0]);
+	// wait for parent to do base setup
+	wait_for_other(parent_to_child_fds[0]);
 
 	if (arg_debug && child_pid == 1)
 		printf("PID namespace installed\n");
@@ -781,14 +850,9 @@ int sandbox(void* sandbox_arg) {
 			exit(rv);
 	}
 
-#ifdef HAVE_FORCE_NONEWPRIVS
-	bool always_enforce_filters = true;
-#else
-	bool always_enforce_filters = false;
-#endif
 	// for --appimage, --chroot and --overlay* we force NO_NEW_PRIVS
 	// and drop all capabilities
-	if (getuid() != 0 && (arg_appimage || cfg.chrootdir || arg_overlay || always_enforce_filters))
+	if (getuid() != 0 && (arg_appimage || cfg.chrootdir || arg_overlay))
 		enforce_filters();
 
 	// need ld.so.preload if tracing or seccomp with any non-default lists
@@ -796,11 +860,10 @@ int sandbox(void* sandbox_arg) {
 
 	// trace pre-install
 	if (need_preload)
-		fs_trace_preload();
+		fs_trace_touch_or_store_preload();
 
 	// store hosts file
-	if (cfg.hosts_file)
-		fs_store_hosts_file();
+	fs_store_hosts_file();
 
 	//****************************
 	// configure filesystem
@@ -812,8 +875,11 @@ int sandbox(void* sandbox_arg) {
 		//****************************
 		// trace pre-install, this time inside chroot
 		//****************************
-		if (need_preload)
-			fs_trace_preload();
+		if (need_preload) {
+			int rv = unlink(RUN_LDPRELOAD_FILE);
+			(void) rv;
+			fs_trace_touch_or_store_preload();
+		}
 	}
 	else
 #endif
@@ -827,12 +893,14 @@ int sandbox(void* sandbox_arg) {
 	//****************************
 	// appimage
 	//****************************
-	appimage_mount();
+	if (arg_appimage)
+		appimage_mount();
 
 	//****************************
 	// private mode
 	//****************************
 	if (arg_private) {
+		EUID_USER();
 		if (cfg.home_private) {	// --private=
 			if (cfg.chrootdir)
 				fwarning("private=directory feature is disabled in chroot\n");
@@ -851,6 +919,7 @@ int sandbox(void* sandbox_arg) {
 		}
 		else // --private
 			fs_private();
+		EUID_ROOT();
 	}
 
 	if (arg_private_dev)
@@ -883,19 +952,20 @@ int sandbox(void* sandbox_arg) {
 		else if (arg_overlay)
 			fwarning("private-bin feature is disabled in overlay\n");
 		else {
+			EUID_USER();
 			// for --x11=xorg we need to add xauth command
 			if (arg_x11_xorg) {
-				EUID_USER();
 				char *tmp;
 				if (asprintf(&tmp, "%s,xauth", cfg.bin_private_keep) == -1)
 					errExit("asprintf");
 				cfg.bin_private_keep = tmp;
-				EUID_ROOT();
 			}
 			fs_private_bin_list();
+			EUID_ROOT();
 		}
 	}
 
+#ifdef HAVE_PRIVATE_LIB
 	// private-lib is disabled for appimages
 	if (arg_private_lib && !arg_appimage) {
 		if (cfg.chrootdir)
@@ -906,6 +976,7 @@ int sandbox(void* sandbox_arg) {
 			fs_private_lib();
 		}
 	}
+#endif
 
 #ifdef HAVE_USERTMPFS
 	if (arg_private_cache) {
@@ -932,11 +1003,7 @@ int sandbox(void* sandbox_arg) {
 	//****************************
 	// hosts and hostname
 	//****************************
-	if (cfg.hostname)
-		fs_hostname(cfg.hostname);
-
-	if (cfg.hosts_file)
-		fs_mount_hosts_file();
+	fs_hostname();
 
 	//****************************
 	// /etc overrides from the network namespace
@@ -976,6 +1043,7 @@ int sandbox(void* sandbox_arg) {
 			 * 3. mount RUN_ETC_DIR at /etc
 			 */
 			timetrace_start();
+			cfg.etc_private_keep = fs_etc_build(cfg.etc_private_keep);
 			fs_private_dir_copy("/etc", RUN_ETC_DIR, cfg.etc_private_keep);
 
 			if (umount2("/etc/group", MNT_DETACH) == -1)
@@ -988,11 +1056,12 @@ int sandbox(void* sandbox_arg) {
 
 			// create /etc/ld.so.preload file again
 			if (need_preload)
-				fs_trace_preload();
+				fs_trace_touch_preload();
 
 			// openSUSE configuration is split between /etc and /usr/etc
 			// process private-etc a second time
-			fs_private_dir_list("/usr/etc", RUN_USR_ETC_DIR, cfg.etc_private_keep);
+			if (access("/usr/etc", F_OK) == 0)
+				fs_private_dir_list("/usr/etc", RUN_USR_ETC_DIR, cfg.etc_private_keep);
 		}
 	}
 
@@ -1000,10 +1069,12 @@ int sandbox(void* sandbox_arg) {
 	// apply the profile file
 	//****************************
 	// apply all whitelist commands ...
+	EUID_USER();
 	fs_whitelist();
 
 	// ... followed by blacklist commands
 	fs_blacklist(); // mkdir and mkfile are processed all over again
+	EUID_ROOT();
 
 	//****************************
 	// nosound/no3d/notv/novideo and fix for pulseaudio 7.0
@@ -1011,6 +1082,9 @@ int sandbox(void* sandbox_arg) {
 	if (arg_nosound) {
 		// disable pulseaudio
 		pulseaudio_disable();
+
+		// disable pipewire
+		pipewire_disable();
 
 		// disable /dev/snd
 		fs_dev_disable_sound();
@@ -1027,6 +1101,9 @@ int sandbox(void* sandbox_arg) {
 	if (arg_nodvd)
 		fs_dev_disable_dvd();
 
+	if (arg_notpm)
+		fs_dev_disable_tpm();
+
 	if (arg_nou2f)
 		fs_dev_disable_u2f();
 
@@ -1037,9 +1114,10 @@ int sandbox(void* sandbox_arg) {
 		fs_dev_disable_input();
 
 	//****************************
-	// set dns
+	// set DNS
 	//****************************
-	fs_resolvconf();
+	if (cfg.dns1 != NULL || any_dhcp())
+		fs_resolvconf();
 
 	//****************************
 	// start dhcp client
@@ -1052,6 +1130,11 @@ int sandbox(void* sandbox_arg) {
 	EUID_USER();
 	int cwd = 0;
 	if (cfg.cwd) {
+		if (is_link(cfg.cwd)) {
+			fprintf(stderr, "Error: unable to enter private working directory: %s\n", cfg.cwd);
+			exit(1);
+		}
+
 		if (chdir(cfg.cwd) == 0)
 			cwd = 1;
 		else if (arg_private_cwd) {
@@ -1067,8 +1150,10 @@ int sandbox(void* sandbox_arg) {
 			struct stat s;
 			if (stat(cfg.homedir, &s) == 0) {
 				/* coverity[toctou] */
-				if (chdir(cfg.homedir) < 0)
-					errExit("chdir");
+				if (chdir(cfg.homedir) < 0) {
+					fprintf(stderr, "Error: unable to enter home directory: %s: %s\n", cfg.homedir, strerror(errno));
+					exit(1);
+				}
 			}
 		}
 	}
@@ -1103,9 +1188,6 @@ int sandbox(void* sandbox_arg) {
 
 	// save cpu affinity mask to CPU_CFG file
 	save_cpu();
-
-	// save cgroup in CGROUP_CFG file
-	save_cgroup();
 
 	// set seccomp
 	// install protocol filter
@@ -1148,6 +1230,28 @@ int sandbox(void* sandbox_arg) {
 		seccomp_load(RUN_SECCOMP_MDWX_32);
 	}
 
+	if (arg_restrict_namespaces) {
+		if (arg_seccomp_error_action != EPERM) {
+			seccomp_filter_namespaces(true, cfg.restrict_namespaces);
+			seccomp_filter_namespaces(false, cfg.restrict_namespaces);
+		}
+
+		if (arg_debug)
+			printf("Install namespaces filter\n");
+		seccomp_load(RUN_SECCOMP_NS);	// install filter
+		seccomp_load(RUN_SECCOMP_NS_32);
+
+	}
+	else if (cfg.restrict_namespaces) {
+		seccomp_filter_namespaces(true, cfg.restrict_namespaces);
+		seccomp_filter_namespaces(false, cfg.restrict_namespaces);
+
+		if (arg_debug)
+			printf("Install namespaces filter\n");
+		seccomp_load(RUN_SECCOMP_NS);	// install filter
+		seccomp_load(RUN_SECCOMP_NS_32);
+	}
+
 	// make seccomp filters read-only
 	fs_remount(RUN_SECCOMP_DIR, MOUNT_READONLY, 0);
 	seccomp_debug();
@@ -1183,13 +1287,13 @@ int sandbox(void* sandbox_arg) {
 	}
 
 	// notify parent that new user namespace has been created so a proper
- 	// UID/GID map can be setup
- 	notify_other(child_to_parent_fds[1]);
- 	close(child_to_parent_fds[1]);
+	// UID/GID map can be setup
+	notify_other(child_to_parent_fds[1]);
+	close(child_to_parent_fds[1]);
 
- 	// wait for parent to finish setting up a proper UID/GID map
- 	wait_for_other(parent_to_child_fds[0]);
- 	close(parent_to_child_fds[0]);
+	// wait for parent to finish setting up a proper UID/GID map
+	wait_for_other(parent_to_child_fds[0]);
+	close(parent_to_child_fds[0]);
 
 	// somehow, the new user namespace resets capabilities;
 	// we need to do them again
@@ -1203,23 +1307,18 @@ int sandbox(void* sandbox_arg) {
 	// Set NO_NEW_PRIVS if desired
 	//****************************************
 	if (arg_nonewprivs) {
-		prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
-
-		if (prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) != 1) {
-			fwarning("cannot set NO_NEW_PRIVS, it requires a Linux kernel version 3.5 or newer.\n");
-			if (force_nonewprivs) {
-				fprintf(stderr, "Error: NO_NEW_PRIVS required for this sandbox, exiting ...\n");
-				exit(1);
-			}
+		if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) {
+			fprintf(stderr, "Error: cannot set NO_NEW_PRIVS, it requires a Linux kernel version 3.5 or newer.\n");
+			exit(1);
 		}
-		else if (arg_debug)
+		if (arg_debug)
 			printf("NO_NEW_PRIVS set\n");
 	}
 
 	//****************************************
 	// drop privileges
 	//****************************************
-	drop_privs(arg_nogroups);
+	drop_privs(0);
 
 	// kill the sandbox in case the parent died
 	prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0);
@@ -1238,29 +1337,23 @@ int sandbox(void* sandbox_arg) {
 		errExit("fork");
 
 	if (app_pid == 0) {
-#ifdef HAVE_APPARMOR
-		// add apparmor confinement after the execve
-		set_apparmor();
-#endif
-
-		// set nice and rlimits
-		if (arg_nice)
-			set_nice(cfg.nice);
-		set_rlimits();
-
-		start_application(0, -1, set_sandbox_status);
+		start_application(0, -1, set_sandbox_status);	// this function does not return
 	}
 
 	munmap(set_sandbox_status, 1);
 
 	int status = monitor_application(app_pid);	// monitor application
-	flush_stdin();
 
 	if (WIFEXITED(status)) {
 		// if we had a proper exit, return that exit status
-		return WEXITSTATUS(status);
+		status = WEXITSTATUS(status);
+	} else if (WIFSIGNALED(status)) {
+		// distinguish fatal signals by adding 128
+		status = 128 + WTERMSIG(status);
 	} else {
-		// something else went wrong!
-		return -1;
+		status = -1;
 	}
+
+	flush_stdin();
+	return status;
 }

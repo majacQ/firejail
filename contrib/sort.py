@@ -1,108 +1,176 @@
 #!/usr/bin/env python3
 # This file is part of Firejail project
-# Copyright (C) 2014-2021 Firejail Authors
+# Copyright (C) 2014-2025 Firejail Authors
 # License GPL v2
-"""
-Sort the items of multi-item options in profiles, the following options are supported:
-  private-bin, private-etc, private-lib, caps.drop, caps.keep, seccomp.drop, seccomp.drop, protocol
-
-Usage:
-    $ ./sort.py /path/to/profile [ /path/to/profile2 /path/to/profile3 ... ]
-Keep in mind that this will overwrite your profile(s).
-
-Examples:
-    $ ./sort.py MyAwesomeProfile.profile
-    $ ./sort.py new_profile.profile second_new_profile.profile
-    $ ./sort.py ~/.config/firejail/*.{profile,inc,local}
-    $ sudo ./sort.py /etc/firejail/*.{profile,inc,local}
-
-Exit-Codes:
-  0: No Error; No Profile Fixed.
-  1: Error, one or more profiles were not processed correctly.
-  101: No Error; One or more profile were fixed.
-"""
 
 # Requirements:
 #  python >= 3.6
-from sys import argv
+from os import path
+from sys import argv, exit as sys_exit, stderr
+
+__doc__ = f"""\
+Strip whitespace and sort the arguments of commands in profiles.
+
+Usage: {path.basename(argv[0])} [-h] [-i] [-n] [--] [/path/to/profile ...]
+
+The following commands are supported:
+
+    private-bin, private-etc, private-lib, caps.drop, caps.keep, seccomp,
+    seccomp.drop, seccomp.keep, protocol
+
+Note that this is only applicable to commands that support multiple arguments.
+
+Trailing whitespace is removed in all lines (that is, not just in lines
+containing supported commands) and other whitespace is stripped depending on
+the command.
+
+Options:
+    -h  Print this message.
+    -i  Edit the profile file(s) in-place (this is the default).
+    -n  Do not edit the profile file(s) in-place.
+    --  End of options.
+
+Examples:
+    $ {argv[0]} MyAwesomeProfile.profile
+    $ {argv[0]} new_profile.profile second_new_profile.profile
+    $ {argv[0]} ~/.config/firejail/*.{{profile,inc,local}}
+    $ sudo {argv[0]} /etc/firejail/*.{{profile,inc,local}}
+
+Exit Codes:
+  0: Success: No profiles needed fixing.
+  1: Error: One or more profiles could not be processed correctly.
+  2: Error: Invalid or missing arguments.
+  101: Info: One or more profiles were fixed.
+"""
 
 
-def sort_alphabetical(raw_items):
-    items = raw_items.split(",")
-    items.sort(key=lambda s: s.casefold())
+def sort_alphabetical(original_items):
+    items = original_items.split(",")
+    items = set(map(str.strip, items))
+    items = filter(None, items)
+    items = sorted(items)
     return ",".join(items)
 
 
-def sort_protocol(protocols):
-    """sort the given protocole into this scheme: unix,inet,inet6,netlink,packet,bluetooth"""
+def sort_protocol(original_protocols):
+    """
+    Sort the given protocols into the following order:
+
+        unix,inet,inet6,netlink,packet,bluetooth
+    """
+
+    # remove all whitespace
+    original_protocols = "".join(original_protocols.split())
 
     # shortcut for common protocol lines
-    if protocols in ("unix", "unix,inet,inet6"):
-        return protocols
+    if original_protocols in ("unix", "unix,inet,inet6"):
+        return original_protocols
 
     fixed_protocols = ""
     for protocol in ("unix", "inet", "inet6", "netlink", "packet", "bluetooth"):
         for prefix in ("", "-", "+", "="):
-            if f",{prefix}{protocol}," in f",{protocols},":
+            if f",{prefix}{protocol}," in f",{original_protocols},":
                 fixed_protocols += f"{prefix}{protocol},"
     return fixed_protocols[:-1]
 
 
-def fix_profile(filename):
+def check_profile(filename, overwrite):
     with open(filename, "r+") as profile:
-        lines = profile.read().split("\n")
+        original_profile_str = profile.read()
+        if not original_profile_str:
+            return
+
+        lines = original_profile_str.split("\n")
         was_fixed = False
         fixed_profile = []
-        for lineno, line in enumerate(lines):
+        for lineno, original_line in enumerate(lines, 1):
+            line = original_line.rstrip()
             if line[:12] in ("private-bin ", "private-etc ", "private-lib "):
-                fixed_line = f"{line[:12]}{sort_alphabetical(line[12:])}"
+                line = f"{line[:12]}{sort_alphabetical(line[12:])}"
             elif line[:13] in ("seccomp.drop ", "seccomp.keep "):
-                fixed_line = f"{line[:13]}{sort_alphabetical(line[13:])}"
+                line = f"{line[:13]}{sort_alphabetical(line[13:])}"
             elif line[:10] in ("caps.drop ", "caps.keep "):
-                fixed_line = f"{line[:10]}{sort_alphabetical(line[10:])}"
+                line = f"{line[:10]}{sort_alphabetical(line[10:])}"
             elif line[:8] == "protocol":
-                fixed_line = f"protocol {sort_protocol(line[9:])}"
+                line = f"protocol {sort_protocol(line[9:])}"
             elif line[:8] == "seccomp ":
-                fixed_line = f"{line[:8]}{sort_alphabetical(line[8:])}"
-            else:
-                fixed_line = line
-            if fixed_line != line:
+                line = f"{line[:8]}{sort_alphabetical(line[8:])}"
+            if line != original_line:
                 was_fixed = True
                 print(
-                    f"{filename}:{lineno + 1}:-{line}\n"
-                    f"{filename}:{lineno + 1}:+{fixed_line}"
+                    f"{filename}:{lineno}:-'{original_line}'\n"
+                    f"{filename}:{lineno}:+'{line}'"
                 )
-            fixed_profile.append(fixed_line)
+            fixed_profile.append(line)
+
+        fixed_profile_str = "\n".join(fixed_profile)
+        stripped_profile_str = fixed_profile_str.strip() + "\n"
+        while "\n\n\n" in stripped_profile_str:
+            stripped_profile_str = stripped_profile_str.replace("\n\n\n", "\n\n")
+
+        if stripped_profile_str != fixed_profile_str:
+            was_fixed = True
+            print(f"{filename}:(fixed whitespace)")
+
         if was_fixed:
-            profile.seek(0)
-            profile.truncate()
-            profile.write("\n".join(fixed_profile))
-            profile.flush()
-            print(f"[ Fixed ] {filename}")
+            if overwrite:
+                profile.seek(0)
+                profile.truncate()
+                profile.write(stripped_profile_str)
+                profile.flush()
+                print(f"[ Fixed ] {filename}")
             return 101
         return 0
 
 
 def main(args):
+    overwrite = True
+    while len(args) > 0:
+        if args[0] == "-h":
+            print(__doc__)
+            return 0
+        elif args[0] == "-i":
+            overwrite = True
+            args.pop(0)
+        elif args[0] == "-n":
+            overwrite = False
+            args.pop(0)
+        elif args[0] == "--":
+            args.pop(0)
+            break
+        elif args[0][0] == "-":
+            print(f"[ Error ] Unknown option: {args[0]}", file=stderr)
+            return 2
+        else:
+            break
+
+    if len(args) < 1:
+        print(__doc__, file=stderr)
+        return 2
+
+    print(f"sort.py: checking {len(args)} profile(s)...")
+
     exit_code = 0
-    print(f"sort.py: checking {len(args)} {'profiles' if len(args) != 1 else 'profile'}...")
     for filename in args:
         try:
             if exit_code not in (1, 101):
-                exit_code = fix_profile(filename)
+                exit_code = check_profile(filename, overwrite)
             else:
-                fix_profile(filename)
-        except FileNotFoundError:
-            print(f"[ Error ] Can't find `{filename}'")
+                check_profile(filename, overwrite)
+        except FileNotFoundError as err:
+            print(f"[ Error ] {err}", file=stderr)
             exit_code = 1
-        except PermissionError:
-            print(f"[ Error ] Can't read/write `{filename}'")
+        except PermissionError as err:
+            print(f"[ Error ] {err}", file=stderr)
             exit_code = 1
         except Exception as err:
-            print(f"[ Error ] An error occurred while processing `{filename}': {err}")
+            print(
+                f"[ Error ] An error occurred while processing '{filename}': {err}",
+                file=stderr,
+            )
             exit_code = 1
     return exit_code
 
 
 if __name__ == "__main__":
-    exit(main(argv[1:]))
+    sys_exit(main(argv[1:]))

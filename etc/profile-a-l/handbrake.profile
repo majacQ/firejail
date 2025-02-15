@@ -1,5 +1,5 @@
 # Firejail profile for handbrake
-# Description: Versatile DVD ripper and video transcoder (GTK+ GUI)
+# Description: Versatile DVD ripper and video transcoder (GTK GUI)
 # This file is overwritten after every install/update
 # Persistent local customizations
 include handbrake.local
@@ -7,6 +7,7 @@ include handbrake.local
 include globals.local
 
 noblacklist ${HOME}/.config/ghb
+noblacklist ${HOME}/.dvdcss
 noblacklist ${MUSIC}
 noblacklist ${VIDEOS}
 
@@ -14,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -31,10 +31,11 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
 private-dev
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

@@ -33,6 +33,7 @@ owner /{,var/}run/firejail/dbus/[0-9]*/[0-9]*-user w,
 #ptrace,
 # Allow obtaining some process information, but not ptrace(2)
 ptrace (read,readby) peer=@{profile_name},
+ptrace (read,readby) peer=@{profile_name}//&unconfined,
 
 ##########
 # Allow read access to whole filesystem and control it from firejail.
@@ -66,6 +67,9 @@ owner /{,var/}run/media/** w,
 
 # Allow access to cups printing socket.
 /{,var/}run/cups/cups.sock w,
+
+# Allow access to avahi-daemon socket.
+/{,var/}run/avahi-daemon/socket w,
 
 # Allow access to pcscd socket (smartcards)
 /{,var/}run/pcscd/pcscd.comm w,
@@ -120,6 +124,7 @@ network packet,
 ##########
 # There is no equivalent in Firejail for filtering signals.
 ##########
+signal (send) peer=@{profile_name}//&unconfined,
 signal (send) peer=@{profile_name},
 signal (receive),
 
@@ -129,7 +134,7 @@ signal (receive),
 ##########
 # The list of recognized capabilities varies from one apparmor version to another.
 # For example on Debian 10 (apparmor 2.13.2) checkpoint_restore, perfmon, bpf are not available
-# We allow all caps by default and remove the  ones we don't like:
+# We allow all caps by default and remove the ones we don't like:
 capability,
 deny capability audit_write,
 deny capability audit_control,

@@ -10,18 +10,17 @@ include globals.local
 noblacklist ${HOME}/.digrc
 noblacklist ${PATH}/dig
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}
 
 include disable-common.inc
-# include disable-devel.inc
+#include disable-devel.inc
 include disable-exec.inc
-# include disable-interpreters.inc
-include disable-passwdmgr.inc
+#include disable-interpreters.inc
 include disable-programs.inc
+include disable-x11.inc
 include disable-xdg.inc
 
-#mkfile ${HOME}/.digrc - see #903
+#mkfile ${HOME}/.digrc # see #903
 whitelist ${HOME}/.digrc
 include whitelist-common.inc
 include whitelist-usr-share-common.inc
@@ -44,12 +43,12 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin bash,dig,sh
 private-dev
+private-etc
 # Add the next line to your dig.local on non Debian/Ubuntu OS (see issue #3038).
 #private-lib
 private-tmp
@@ -58,3 +57,4 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

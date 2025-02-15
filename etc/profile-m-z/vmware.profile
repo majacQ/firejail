@@ -1,5 +1,5 @@
 # Firejail profile for vmware
-# Description: The industry standard for running multiple operating systems as virtual machines on a single Linux PC.
+# Description: VMWare Workstation Player, used for running virtual machines
 # This file is overwritten after every install/update
 # Persistent local customizations
 include vmware.local
@@ -8,12 +8,12 @@ include globals.local
 
 noblacklist ${HOME}/.cache/vmware
 noblacklist ${HOME}/.vmware
+noblacklist /usr/lib/vmware
 
 include disable-common.inc
-include disable-devel.inc
+#include disable-devel.inc # gcc is used to compile kernel modules
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -33,12 +33,11 @@ caps.keep chown,net_raw,sys_nice
 netfilter
 nogroups
 notv
-shell none
 tracelog
 
 #disable-mnt
 # Add the next line to your vmware.local to enable private-bin.
 #private-bin env,bash,sh,ovftool,vmafossexec,vmaf_*,vmnet-*,vmplayer,vmrest,vmrun,vmss2core,vmstat,vmware,vmware-*
-private-etc alsa,asound.conf,ca-certificates,conf.d,crypto-policies,dconf,fonts,gtk-2.0,gtk-3.0,hostname,hosts,ld.so.cache,localtime,machine-id,passwd,pki,pulse,resolv.conf,ssl,vmware,vmware-installer,vmware-vix
+private-etc @tls-ca,@x11,conf.d,mtab,vmware,vmware-installer,vmware-vix
 dbus-user none
 dbus-system none

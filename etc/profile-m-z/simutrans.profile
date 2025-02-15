@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.simutrans
@@ -33,11 +32,13 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 
-# private-bin simutrans
+#private-bin simutrans
 private-dev
+private-etc @games,@x11
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

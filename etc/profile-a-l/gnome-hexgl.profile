@@ -10,7 +10,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -35,7 +34,6 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
@@ -43,7 +41,7 @@ private
 private-bin gnome-hexgl
 private-cache
 private-dev
-private-etc alsa,asound.conf,machine-id,pulse
+private-etc
 private-tmp
 
 dbus-user none
@@ -51,3 +49,4 @@ dbus-system none
 
 read-only ${HOME}
 read-write ${HOME}/.cache/mesa_shader_cache
+restrict-namespaces

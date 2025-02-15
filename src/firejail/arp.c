@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -20,6 +20,7 @@
 #include "firejail.h"
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <linux/if_ether.h>			  //TCP/IP Protocol Suite for Linux
 #include <net/if.h>
 #include <netinet/in.h>
@@ -188,10 +189,19 @@ int arp_check(const char *dev, uint32_t destaddr) {
 	FD_SET(sock, &fds);
 	int maxfd = sock;
 	struct timeval ts;
-	ts.tv_sec = 0; // 0.5 seconds wait time
-	ts.tv_usec = 500000;
+	gettimeofday(&ts, NULL);
+	double timerend = ts.tv_sec + ts.tv_usec / 1000000.0 + 0.5;
 	while (1) {
-		int nready = select(maxfd + 1,  &fds, (fd_set *) 0, (fd_set *) 0, &ts);
+		gettimeofday(&ts, NULL);
+		double now = ts.tv_sec + ts.tv_usec / 1000000.0;
+		double timeout = timerend - now;
+		ts.tv_sec = timeout;
+		ts.tv_usec = (timeout - ts.tv_sec) * 1000000;
+		if (ts.tv_sec < 0)
+			ts.tv_sec = 0;
+		if (ts.tv_usec < 0)
+			ts.tv_usec = 0;
+		int nready = select(maxfd + 1, &fds, (fd_set *) 0, (fd_set *) 0, &ts);
 		if (nready < 0)
 			errExit("select");
 		else if (nready == 0) { // timeout
@@ -201,8 +211,8 @@ int arp_check(const char *dev, uint32_t destaddr) {
 			}
 			if (sendto (sock, frame, 14 + sizeof(ArpHdr), 0, (struct sockaddr *) &addr, sizeof (addr)) <= 0)
 				errExit("send");
-			ts.tv_sec = 0; // 0.5 seconds wait time
-			ts.tv_usec = 500000;
+			gettimeofday(&ts, NULL);
+			timerend = ts.tv_sec + ts.tv_usec / 1000000.0 + 0.5;
 			fflush(0);
 		}
 		else {
@@ -277,7 +287,7 @@ static uint32_t arp_random(const char *dev, Bridge *br) {
 	int i = 0;
 	for (i = 0; i < 10; i++) {
 		dest = start + ((uint32_t) rand()) % range;
-		if (dest == ifip)	// do not allow the interface address
+		if (dest == ifip || dest == cfg.defaultgw)	// do not allow the interface address or the default gateway
 			continue;		// try again
 
 		// if we've made it up to here, we have a valid address
@@ -293,7 +303,7 @@ static uint32_t arp_random(const char *dev, Bridge *br) {
 	return 0;
 }
 
-// go sequentially trough all IP addresses and assign the first one not in use
+// go sequentially through all IP addresses and assign the first one not in use
 static uint32_t arp_sequential(const char *dev, Bridge *br) {
 	assert(dev);
 	assert(br);
@@ -325,7 +335,7 @@ static uint32_t arp_sequential(const char *dev, Bridge *br) {
 
 	// loop through addresses and stop as soon as you find an unused one
 	while (dest <= last) {
-		if (dest == ifip) {
+		if (dest == ifip || dest == cfg.defaultgw) {
 			dest++;
 			continue;
 		}

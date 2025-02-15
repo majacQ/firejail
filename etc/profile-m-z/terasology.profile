@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.java
@@ -38,12 +37,13 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 disable-mnt
 private-dev
-private-etc alternatives,asound.conf,ca-certificates,crypto-policies,dbus-1,drirc,fonts,group,gtk-2.0,gtk-3.0,host.conf,hostname,hosts,java-7-openjdk,java-8-openjdk,ld.so.cache,ld.so.preload,localtime,lsb-release,machine-id,mime.types,passwd,pki,pulse,resolv.conf,ssl
+private-etc @tls-ca,@x11,dbus-1,host.conf,java*,lsb-release,mime.types
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

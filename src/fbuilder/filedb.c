@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -25,21 +25,21 @@ FileDB *filedb_find(FileDB *head, const char *fname) {
 	assert(fname);
 	FileDB *ptr = head;
 	int found = 0;
-	int len = strlen(fname);
 
 	while (ptr) {
-		// exact name
-		if (strcmp(fname, ptr->fname) == 0) {
+		// ptr->fname can be a pattern, like .mutter-Xwaylandauth.*
+		// check if fname is a match
+		if (fnmatch(ptr->fname, fname, FNM_PATHNAME) == 0) {
 			found = 1;
 			break;
 		}
 
 		// parent directory in the list
-		if (len > ptr->len &&
+		if (strlen(fname) > ptr->len &&
 		    fname[ptr->len] == '/' &&
 		    strncmp(ptr->fname, fname, ptr->len) == 0) {
-		    	found = 1;
-		    	break;
+			found = 1;
+			break;
 		}
 
 		ptr = ptr->next;
@@ -53,8 +53,6 @@ FileDB *filedb_find(FileDB *head, const char *fname) {
 
 FileDB *filedb_add(FileDB *head, const char *fname) {
 	assert(fname);
-
-	// todo: support fnames such as ${RUNUSER}/.mutter-Xwaylandauth.*
 
 	// don't add it if it is already there or if the parent directory is already in the list
 	if (filedb_find(head, fname))
@@ -96,7 +94,7 @@ FileDB *filedb_load_whitelist(FileDB *head, const char *fname, const char *prefi
 		errExit("asprintf");
 	FILE *fp = fopen(f, "r");
 	if (!fp) {
-		fprintf(stderr, "Error: cannot open whitelist-common.inc\n");
+		fprintf(stderr, "Error fbuilder: cannot open %s\n", f);
 		free(f);
 		exit(1);
 	}

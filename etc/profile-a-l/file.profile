@@ -11,12 +11,10 @@ blacklist ${RUNUSER}
 
 include disable-common.inc
 include disable-exec.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 apparmor
 caps.drop all
-hostname file
 ipc-namespace
 machine-id
 net none
@@ -31,7 +29,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
@@ -46,3 +43,4 @@ dbus-system none
 
 memory-deny-write-execute
 read-only ${HOME}
+restrict-namespaces

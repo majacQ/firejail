@@ -1,6 +1,7 @@
 # Firejail profile for mediainfo
 # Description: Command-line utility for reading information from audio/video files
 # This file is overwritten after every install/update
+quiet
 # Persistent local customizations
 include mediainfo.local
 # Persistent global definitions
@@ -12,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -36,17 +36,17 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
 private-bin mediainfo
 private-cache
 private-dev
-private-etc alternatives
+private-etc
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

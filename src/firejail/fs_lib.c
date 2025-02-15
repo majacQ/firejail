@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -32,6 +32,62 @@ extern void fslib_install_stdc(void);
 extern void fslib_install_firejail(void);
 extern void fslib_install_system(void);
 
+// return 1 if symlink to firejail executable
+int is_firejail_link(const char *fname) {
+	EUID_ASSERT();
+
+	if (!is_link(fname))
+		return 0;
+
+	char *rp = realpath(fname, NULL);
+	if (!rp)
+		return 0;
+
+	int rv = 0;
+	const char *base = gnu_basename(rp);
+	if (strcmp(base, "firejail") == 0)
+		rv = 1;
+
+	free(rp);
+	return rv;
+}
+
+char *find_in_path(const char *program) {
+	EUID_ASSERT();
+	if (arg_debug)
+		printf("Searching $PATH for %s\n", program);
+
+	const char *path = env_get("PATH");
+	if (!path)
+		return NULL;
+
+	char *dup = strdup(path);
+	if (!dup)
+		errExit("strdup");
+	char *tok = strtok(dup, ":");
+	while (tok) {
+		char *fname;
+		if (asprintf(&fname, "%s/%s", tok, program) == -1)
+			errExit("asprintf");
+
+		if (arg_debug)
+			printf("trying #%s#\n", fname);
+		struct stat s;
+		if (stat(fname, &s) == 0 &&
+		    !is_firejail_link(fname)) { // skip links created by firecfg
+			free(dup);
+			return fname;
+		}
+
+		free(fname);
+		tok = strtok(NULL, ":");
+	}
+
+	free(dup);
+	return NULL;
+}
+
+#ifdef HAVE_PRIVATE_LIB
 static int lib_cnt = 0;
 static int dir_cnt = 0;
 
@@ -59,53 +115,6 @@ static int valid_full_path(const char *full_path) {
 		i++;
 	}
 	return 0;
-}
-
-char *find_in_path(const char *program) {
-	EUID_ASSERT();
-	if (arg_debug)
-		printf("Searching $PATH for %s\n", program);
-
-	char self[MAXBUF];
-	ssize_t len = readlink("/proc/self/exe", self, MAXBUF - 1);
-	if (len < 0)
-		errExit("readlink");
-	self[len] = '\0';
-
-	const char *path = env_get("PATH");
-	if (!path)
-		return NULL;
-
-	char *dup = strdup(path);
-	if (!dup)
-		errExit("strdup");
-	char *tok = strtok(dup, ":");
-	while (tok) {
-		char *fname;
-		if (asprintf(&fname, "%s/%s", tok, program) == -1)
-			errExit("asprintf");
-
-		if (arg_debug)
-			printf("trying #%s#\n", fname);
-		struct stat s;
-		if (stat(fname, &s) == 0) {
-			// but skip links created by firecfg
-			char *rp = realpath(fname, NULL);
-			if (!rp)
-				errExit("realpath");
-			if (strcmp(self, rp) != 0) {
-				free(rp);
-				free(dup);
-				return fname;
-			}
-			free(rp);
-		}
-		free(fname);
-		tok = strtok(NULL, ":");
-	}
-
-	free(dup);
-	return NULL;
 }
 
 static char *build_dest_dir(const char *full_path) {
@@ -178,8 +187,7 @@ void fslib_mount(const char *full_path) {
 
 	if (*full_path == '\0' ||
 	    !valid_full_path(full_path) ||
-	    access(full_path, F_OK) != 0 ||
-	    stat(full_path, &s) != 0 ||
+	    stat_as_user(full_path, &s) != 0 ||
 	    s.st_uid != 0)
 		return;
 
@@ -196,6 +204,11 @@ void fslib_mount_libs(const char *full_path, unsigned user) {
 	assert(full_path);
 	// if library/executable does not exist or the user does not have read access to it
 	// print a warning and exit the function.
+	if (access(full_path, F_OK)) {
+		if (arg_debug || arg_debug_private_lib)
+			printf("Cannot find %s, skipping...\n", full_path);
+		return;
+	}
 	if (user && access(full_path, R_OK)) {
 		if (arg_debug || arg_debug_private_lib)
 			printf("Cannot read %s, skipping...\n", full_path);
@@ -203,7 +216,7 @@ void fslib_mount_libs(const char *full_path, unsigned user) {
 	}
 
 	if (arg_debug || arg_debug_private_lib)
-		printf("    fslib_mount_libs %s (parse as %s)\n", full_path, user ? "user" : "root");
+		printf("    fslib_mount_libs %s\n", full_path);
 	// create an empty RUN_LIB_FILE and allow the user to write to it
 	unlink(RUN_LIB_FILE);			  // in case is there
 	create_empty_file_as_root(RUN_LIB_FILE, 0644);
@@ -212,7 +225,7 @@ void fslib_mount_libs(const char *full_path, unsigned user) {
 
 	// run fldd to extract the list of files
 	if (arg_debug || arg_debug_private_lib)
-		printf("    running fldd %s\n", full_path);
+		printf("    running fldd %s as %s\n", full_path, user ? "user" : "root");
 	unsigned mask;
 	if (user)
 		mask = SBOX_USER;
@@ -246,7 +259,7 @@ static void load_library(const char *fname) {
 
 	// existing file owned by root
 	struct stat s;
-	if (!access(fname, F_OK) && stat(fname, &s) == 0 && s.st_uid == 0) {
+	if (stat_as_user(fname, &s) == 0 && s.st_uid == 0) {
 		// load directories, regular 64 bit libraries, and 64 bit executables
 		if (S_ISDIR(s.st_mode))
 			fslib_mount(fname);
@@ -264,9 +277,9 @@ static void install_list_entry(const char *lib) {
 	assert(lib);
 
 	// filename check
-	int len = strlen(lib);
-	if (strcspn(lib, "\\&!?\"'<>%^(){}[];,") != (size_t)len ||
-	strstr(lib, "..")) {
+	reject_meta_chars(lib, 1);
+
+	if (strstr(lib, "..")) {
 		fprintf(stderr, "Error: \"%s\" is an invalid library\n", lib);
 		exit(1);
 	}
@@ -286,19 +299,21 @@ static void install_list_entry(const char *lib) {
 #define DO_GLOBBING
 #ifdef DO_GLOBBING
 		// globbing
+		EUID_USER();
 		glob_t globbuf;
 		int globerr = glob(fname, GLOB_NOCHECK | GLOB_NOSORT | GLOB_PERIOD, NULL, &globbuf);
 		if (globerr) {
 			fprintf(stderr, "Error: failed to glob private-lib pattern %s\n", fname);
 			exit(1);
 		}
+		EUID_ROOT();
 		size_t j;
 		for (j = 0; j < globbuf.gl_pathc; j++) {
 			assert(globbuf.gl_pathv[j]);
 //printf("glob %s\n", globbuf.gl_pathv[j]);
 			// GLOB_NOCHECK - no pattern matched returns the original pattern; try to load it anyway
 
-			// foobar/* includes foobar/. and foobar/..
+			// foobar/* expands to foobar/. and foobar/..
 			const char *base = gnu_basename(globbuf.gl_pathv[j]);
 			if (strcmp(base, ".") == 0 || strcmp(base, "..") == 0)
 				continue;
@@ -378,8 +393,7 @@ void fs_private_lib(void) {
 	char *private_list = cfg.lib_private_keep;
 	if (arg_debug || arg_debug_private_lib)
 		printf("Starting private-lib processing: program %s, shell %s\n",
-			(cfg.original_program_index > 0)? cfg.original_argv[cfg.original_program_index]: "none",
-		(arg_shell_none)? "none": cfg.shell);
+			(cfg.original_program_index > 0)? cfg.original_argv[cfg.original_program_index]: "none", cfg.usershell);
 
 	// create /run/firejail/mnt/lib directory
 	mkdir_attr(RUN_LIB_DIR, 0755, 0, 0);
@@ -416,15 +430,15 @@ void fs_private_lib(void) {
 		}
 	}
 
-	// for the shell
-	if (!arg_shell_none) {
-		if (arg_debug || arg_debug_private_lib)
-			printf("Installing shell libraries\n");
-
-		fslib_install_list(cfg.shell);
-		// a shell is useless without some basic commands
-		fslib_install_list("/bin/ls,/bin/cat,/bin/mv,/bin/rm");
-	}
+// Note: this might be used for appimages!!!
+//	if (!arg_shell_none) {
+//		if (arg_debug || arg_debug_private_lib)
+//			printf("Installing shell libraries\n");
+//
+//		fslib_install_list(cfg.shell);
+//		// a shell is useless without some basic commands
+//		fslib_install_list("/bin/ls,/bin/cat,/bin/mv,/bin/rm");
+//	}
 
 	// for the listed libs and directories
 	if (private_list && *private_list != '\0') {
@@ -452,3 +466,4 @@ void fs_private_lib(void) {
 	// mount lib filesystem
 	mount_directories();
 }
+#endif

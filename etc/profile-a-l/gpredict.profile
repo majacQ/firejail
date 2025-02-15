@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
@@ -32,11 +31,11 @@ notv
 nou2f
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 private-bin gpredict
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,fonts,pki,resolv.conf,ssl
+private-etc @tls-ca
 private-tmp
 
+restrict-namespaces

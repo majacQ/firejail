@@ -10,11 +10,16 @@ noblacklist ${HOME}/.cache/darktable
 noblacklist ${HOME}/.config/darktable
 noblacklist ${PICTURES}
 
+# Allow lua (blacklisted by disable-interpreters.inc)
+include allow-lua.inc
+
+# Allow perl (blacklisted by disable-interpreters.inc)
+include allow-perl.inc
+
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -31,9 +36,9 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
-#private-bin darktable
+#private-bin darktable,exiftool,perl
 private-dev
 private-tmp
 
+restrict-namespaces

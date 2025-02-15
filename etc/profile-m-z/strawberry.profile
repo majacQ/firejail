@@ -15,7 +15,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -37,14 +36,15 @@ novideo
 protocol unix,inet,inet6,netlink
 # blacklisting of ioprio_set system calls breaks strawberry
 seccomp !ioprio_set
-shell none
 tracelog
 
 disable-mnt
 private-bin strawberry,strawberry-tagreader
 private-cache
 private-dev
-private-etc ca-certificates,crypto-policies,fonts,host.conf,hostname,hosts,nsswitch.conf,pki,resolv.conf,ssl
+private-etc @tls-ca,host.conf
 private-tmp
 
 dbus-system none
+
+restrict-namespaces

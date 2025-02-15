@@ -7,10 +7,10 @@ include globals.local
 
 # Make home directory read-only and allow writing only to ${HOME}/.local/share/baloo
 # Note: Baloo will not be able to update the "first run" key in its configuration files.
-# mkdir ${HOME}/.local/share/baloo
-# read-only ${HOME}
-# read-write ${HOME}/.local/share/baloo
-# ignore read-write
+#mkdir ${HOME}/.local/share/baloo
+#read-only ${HOME}
+#read-write ${HOME}/.local/share/baloo
+#ignore read-write
 
 noblacklist ${HOME}/.config/baloofilerc
 noblacklist ${HOME}/.kde/share/config/baloofilerc
@@ -23,15 +23,15 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
+include whitelist-run-common.inc
 include whitelist-var-common.inc
 
 apparmor
 caps.drop all
 machine-id
-# net none
+#net none
 netfilter
 no3d
 nodvd
@@ -46,10 +46,11 @@ novideo
 protocol unix
 # blacklisting of ioprio_set system calls breaks baloo_file
 seccomp !ioprio_set
-shell none
-# x11 xorg
+#x11 xorg
 
 private-bin baloo_file,baloo_file_extractor,baloo_filemetadata_temp_extractor,kbuildsycoca4
 private-cache
 private-dev
 private-tmp
+
+restrict-namespaces

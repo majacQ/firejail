@@ -18,7 +18,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -31,6 +30,7 @@ whitelist ${HOME}/.cache/gfeeds
 whitelist ${HOME}/.cache/org.gabmus.gfeeds
 whitelist ${HOME}/.config/org.gabmus.gfeeds.json
 whitelist ${HOME}/.config/org.gabmus.gfeeds.saved_articles
+whitelist /usr/libexec/webkit2gtk-4.0
 whitelist /usr/share/gfeeds
 include whitelist-common.inc
 include whitelist-runuser-common.inc
@@ -54,17 +54,18 @@ novideo
 protocol unix,inet,inet6
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin gfeeds,python3*
-# private-cache -- feeds are stored in ~/.cache
+#private-cache # feeds are stored in ~/.cache
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,dbus-1,dconf,fonts,gconf,group,gtk-3.0,host.conf,hostname,hosts,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,machine-id,mime.types,nsswitch.conf,pango,passwd,pki,protocols,resolv.conf,rpc,services,ssl,X11,xdg
+private-etc @tls-ca,@x11,dbus-1,gconf,host.conf,mime.types,rpc,services
 private-tmp
 
 dbus-user filter
 dbus-user.own org.gabmus.gfeeds
 dbus-user.talk ca.desrt.dconf
 dbus-system none
+
+restrict-namespaces

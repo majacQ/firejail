@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.aMule
@@ -33,11 +32,12 @@ nosound
 notv
 nou2f
 novideo
+# Add netlink protocol to use UPnP
 protocol unix,inet,inet6
 seccomp
-shell none
 
 private-bin amule
 private-dev
 private-tmp
 
+restrict-namespaces

@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -39,7 +38,6 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
@@ -47,7 +45,7 @@ disable-mnt
 private-bin gtk-update-icon-cache
 private-cache
 private-dev
-private-etc none
+private-etc
 private-lib
 private-tmp
 
@@ -55,3 +53,4 @@ dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

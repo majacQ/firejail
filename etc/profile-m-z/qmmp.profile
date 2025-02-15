@@ -12,14 +12,13 @@ noblacklist ${MUSIC}
 include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
 caps.drop all
 netfilter
-# no3d
+#no3d
 nogroups
 noinput
 nonewprivs
@@ -29,7 +28,6 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 private-bin bzip2,gzip,qmmp,tar,unzip
@@ -38,3 +36,5 @@ private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

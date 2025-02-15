@@ -36,9 +36,10 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 # private-bin breaks --join if the user has zsh set as $SHELL - adding zsh on private-bin
 private-bin bash,filezilla,fzputtygen,fzsftp,lsb_release,python*,sh,uname,zsh
 private-dev
 private-tmp
+
+restrict-namespaces

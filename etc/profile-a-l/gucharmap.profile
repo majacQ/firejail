@@ -10,7 +10,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -23,7 +22,7 @@ include whitelist-var-common.inc
 apparmor
 caps.drop all
 machine-id
-#net none - breaks dbus
+#net none # breaks dbus
 no3d
 nodvd
 nogroups
@@ -37,19 +36,19 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin gnome-character-map,gucharmap
 private-cache
 private-dev
-private-etc alternatives,dbus-1,dconf,fonts,gconf,gtk-2.0,gtk-3.0,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload,locale,locale.alias,locale.conf,localtime,machine-id,mime.types,pango,X11,xdg
+private-etc @x11,dbus-1,gconf,mime.types
 private-lib
 private-tmp
 
 # breaks state saving
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
 
 read-only ${HOME}
+restrict-namespaces

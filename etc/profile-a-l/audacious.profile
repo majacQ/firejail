@@ -14,10 +14,11 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
+include disable-proc.inc
 include disable-programs.inc
 include disable-xdg.inc
 
+include whitelist-run-common.inc
 include whitelist-var-common.inc
 
 apparmor
@@ -26,20 +27,27 @@ netfilter
 nogroups
 noinput
 nonewprivs
+noprinters
 noroot
 notv
 nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
-# private-bin audacious
+#private-bin audacious
 private-cache
 private-dev
 private-tmp
 
-# dbus needed for MPRIS
-# dbus-user none
-# dbus-system none
+dbus-user filter
+dbus-user.own org.atheme.audacious
+dbus-user.own org.mpris.MediaPlayer2.audacious
+dbus-user.talk ca.desrt.dconf
+dbus-user.talk org.freedesktop.Notifications
+dbus-user.talk org.gtk.vfs.UDisks2VolumeMonitor
+dbus-user.talk org.mpris.MediaPlayer2.Player
+dbus-system none
+
+restrict-namespaces

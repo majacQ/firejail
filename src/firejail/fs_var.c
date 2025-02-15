@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -20,7 +20,6 @@
 #include "firejail.h"
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <linux/limits.h>
 #include <glob.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -129,7 +128,7 @@ void fs_var_log(void) {
 		/* coverity[toctou] */
 		FILE *fp = fopen("/var/log/wtmp", "wxe");
 		if (fp) {
-			SET_PERMS_STREAM(fp, 0, wtmp_group, S_IRUSR | S_IWRITE | S_IRGRP | S_IWGRP | S_IROTH);
+			SET_PERMS_STREAM(fp, 0, wtmp_group, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 			fclose(fp);
 		}
 		fs_logger("touch /var/log/wtmp");
@@ -137,7 +136,7 @@ void fs_var_log(void) {
 		// create an empty /var/log/btmp file
 		fp = fopen("/var/log/btmp", "wxe");
 		if (fp) {
-			SET_PERMS_STREAM(fp, 0, wtmp_group, S_IRUSR | S_IWRITE | S_IRGRP | S_IWGRP);
+			SET_PERMS_STREAM(fp, 0, wtmp_group, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 			fclose(fp);
 		}
 		fs_logger("touch /var/log/btmp");
@@ -231,21 +230,6 @@ void fs_var_cache(void) {
 	}
 }
 
-void dbg_test_dir(const char *dir) {
-	if (arg_debug) {
-		if (is_dir(dir))
-			printf("%s is a directory\n", dir);
-		if (is_link(dir)) {
-			char *lnk = realpath(dir, NULL);
-			if (lnk) {
-				printf("%s is a symbolic link to %s\n", dir, lnk);
-				free(lnk);
-			}
-		}
-	}
-}
-
-
 void fs_var_lock(void) {
 
 	if (is_dir("/var/lock")) {
@@ -255,10 +239,8 @@ void fs_var_lock(void) {
 			errExit("mounting /lock");
 		fs_logger("tmpfs /var/lock");
 	}
-	else {
+	else
 		fwarning("/var/lock not mounted\n");
-		dbg_test_dir("/var/lock");
-	}
 }
 
 void fs_var_tmp(void) {
@@ -272,10 +254,8 @@ void fs_var_tmp(void) {
 			fs_logger("tmpfs /var/tmp");
 		}
 	}
-	else {
+	else
 		fwarning("/var/tmp not mounted\n");
-		dbg_test_dir("/var/tmp");
-	}
 }
 
 void fs_var_utmp(void) {
@@ -301,7 +281,7 @@ void fs_var_utmp(void) {
 
 	// read current utmp
 	struct utmp *u;
-	struct utmp u_boot;
+	struct utmp u_boot = {0};
 	setutent();
 	while ((u = getutent()) != NULL) {
 		if (u->ut_type == BOOT_TIME) {
@@ -314,7 +294,7 @@ void fs_var_utmp(void) {
 	// save new utmp file
 	int rv = fwrite(&u_boot, sizeof(u_boot), 1, fp);
 	(void) rv;
-	SET_PERMS_STREAM(fp, 0, utmp_group, S_IRUSR | S_IWRITE | S_IRGRP | S_IWGRP | S_IROTH);
+	SET_PERMS_STREAM(fp, 0, utmp_group, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 	fclose(fp);
 
 	// mount the new utmp file
@@ -323,4 +303,8 @@ void fs_var_utmp(void) {
 	if (mount(RUN_UTMP_FILE, UTMP_FILE, NULL, MS_BIND|MS_NOSUID|MS_NOEXEC | MS_NODEV | MS_REC, NULL) < 0)
 		errExit("mount bind utmp");
 	fs_logger2("create", UTMP_FILE);
+
+	// blacklist RUN_UTMP_FILE
+	if (mount(RUN_RO_FILE, RUN_UTMP_FILE, NULL, MS_BIND, "mode=400,gid=0") < 0)
+		errExit("mount bind");
 }

@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -41,15 +40,16 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 disable-mnt
 private-bin electrum,python*
 private-cache
 ?HAS_APPIMAGE: ignore private-dev
 private-dev
-private-etc alternatives,ca-certificates,crypto-policies,dconf,fonts,machine-id,pki,resolv.conf,ssl
+private-etc @tls-ca,@x11
 private-tmp
 
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
+
+restrict-namespaces

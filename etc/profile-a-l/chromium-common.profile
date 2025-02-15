@@ -9,54 +9,52 @@ include chromium-common.local
 # noexec ${HOME} breaks DRM binaries.
 ?BROWSER_ALLOW_DRM: ignore noexec ${HOME}
 
-noblacklist ${HOME}/.pki
-noblacklist ${HOME}/.local/share/pki
+# To enable support for the KeePassXC extension, add the following lines to
+# chromium-common.local.
+# Note: Start KeePassXC before the web browser and keep it open to allow
+# communication between them.
+#noblacklist ${RUNUSER}/app
+#whitelist ${RUNUSER}/app/org.keepassxc.KeePassXC
+#whitelist ${RUNUSER}/kpxc_server
+#whitelist ${RUNUSER}/org.keepassxc.KeePassXC.BrowserServer
 
-# Add the next line to your chromium-common.local if you want Google Chrome/Chromium browser
-# to have access to Gnome extensions (extensions.gnome.org) via browser connector
+noblacklist ${HOME}/.local/share/pki
+noblacklist ${HOME}/.pki
+noblacklist /usr/lib/chromium/chrome-sandbox
+
+# Add the next line to chromium-common.local if you want the web browser to
+# have access to Gnome extensions (extensions.gnome.org) via the browser
+# connector.
 #include allow-python3.inc
 
-include disable-common.inc
-include disable-devel.inc
-include disable-exec.inc
-include disable-interpreters.inc
-# include disable-passwdmgr.inc
-include disable-programs.inc
-include disable-xdg.inc
+blacklist ${PATH}/curl
+blacklist ${PATH}/wget
+blacklist ${PATH}/wget2
 
-mkdir ${HOME}/.pki
 mkdir ${HOME}/.local/share/pki
-whitelist ${DOWNLOADS}
-whitelist ${HOME}/.pki
+mkdir ${HOME}/.pki
 whitelist ${HOME}/.local/share/pki
-include whitelist-common.inc
-include whitelist-runuser-common.inc
-include whitelist-usr-share-common.inc
-include whitelist-var-common.inc
+whitelist ${HOME}/.pki
+whitelist /usr/share/mozilla/extensions
+whitelist /usr/share/webext
+include whitelist-run-common.inc
 
-# Add the next line to your chromium-common.local if your kernel allows unprivileged userns clone.
+# If your kernel allows the creation of user namespaces by unprivileged users
+# (for example, if running `unshare -U echo enabled` prints "enabled"), you
+# can add the next line to chromium-common.local.
 #include chromium-common-hardened.inc.profile
 
-# Add the next line to your chromium-common.local to allow screen sharing under wayland.
-#whitelist ${RUNUSER}/pipewire-0
-
-apparmor
-caps.keep sys_admin,sys_chroot
-netfilter
-nodvd
-nogroups
-noinput
-notv
 ?BROWSER_DISABLE_U2F: nou2f
-shell none
 
-disable-mnt
-private-cache
 ?BROWSER_DISABLE_U2F: private-dev
-#private-tmp - issues when using multiple browser sessions
+#private-tmp # issues when using multiple browser sessions
 
-#dbus-user none - prevents access to passwords saved in GNOME Keyring and KWallet, also breaks Gnome connector.
-dbus-system none
+# Note: This prevents access to passwords saved in GNOME Keyring and KWallet
+# and breaks Gnome connector.
+#dbus-user none
 
 # The file dialog needs to work without d-bus.
 ?HAS_NODBUS: env NO_CHROME_KDE_FILE_DIALOG=1
+
+# Redirect
+include blink-common.profile

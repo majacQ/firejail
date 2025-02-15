@@ -12,7 +12,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -20,6 +19,7 @@ include disable-xdg.inc
 mkdir ${HOME}/.local/share/bijiben
 whitelist ${HOME}/.local/share/bijiben
 whitelist ${HOME}/.cache/tracker
+whitelist /usr/libexec/webkit2gtk-4.0
 whitelist /usr/share/bijiben
 whitelist /usr/share/tracker
 whitelist /usr/share/tracker3
@@ -44,14 +44,13 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-bin bijiben
-# private-cache -- access to .cache/tracker is required
+#private-cache # access to .cache/tracker is required
 private-dev
-private-etc dconf,fonts,gtk-3.0,ld.so.cache,ld.so.conf,ld.so.conf.d,ld.so.preload
+private-etc @x11
 private-tmp
 
 dbus-user filter
@@ -60,4 +59,8 @@ dbus-user.talk ca.desrt.dconf
 dbus-user.talk org.freedesktop.Tracker1
 dbus-system none
 
-env WEBKIT_FORCE_SANDBOX=0
+# Warning: Disabling the webkit sandbox may be needed to make firejail work
+# with webkit2gtk, but this is not recommended (see #2995).
+# Add the following line to bijiben.local at your own risk:
+#env WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+restrict-namespaces

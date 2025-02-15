@@ -1,55 +1,75 @@
-name: Build-extra CI
+# Builds the project with alternative tools.
+
+name: Build-extra
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ master ]
-    paths-ignore:
-      - CONTRIBUTING.md
-      - README
-      - README.md
-      - RELNOTES
-      - SECURITY.md
-      - 'etc/**'
-      - 'src/firecfg/firecfg.config'
-      - '.github/ISSUE_TEMPLATE/*'
-      - '.github/pull_request_template.md'
+    branches-ignore:
+      - 'dependabot/**'
+    paths:
+      - 'm4/**'
+      - 'src/**.c'
+      - 'src/**.h'
+      - 'src/**.mk'
+      - 'src/**Makefile'
+      - .github/workflows/build-extra.yml
+      - Makefile
+      - ci/printenv.sh
+      - config.mk.in
+      - config.sh.in
+      - configure
+      - configure.ac
   pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - CONTRIBUTING.md
-      - README
-      - README.md
-      - RELNOTES
-      - SECURITY.md
-      - 'etc/**'
-      - 'src/firecfg/firecfg.config'
-      - '.github/ISSUE_TEMPLATE/*'
-      - '.github/pull_request_template.md'
+    paths:
+      - 'm4/**'
+      - 'src/**.c'
+      - 'src/**.h'
+      - 'src/**.mk'
+      - 'src/**Makefile'
+      - .github/workflows/build-extra.yml
+      - Makefile
+      - ci/printenv.sh
+      - config.mk.in
+      - config.sh.in
+      - configure
+      - configure.ac
+
+permissions:  # added using https://github.com/step-security/secure-workflows
+  contents: read
 
 jobs:
   build-clang:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
     steps:
-    - uses: actions/checkout@v2
+    - name: Harden Runner
+      uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e
+      with:
+        egress-policy: block
+        allowed-endpoints: >
+          azure.archive.ubuntu.com:80
+          github.com:443
+          packages.microsoft.com:443
+          ppa.launchpadcontent.net:443
+    - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+    - name: update package information
+      run: sudo apt-get update -qy
+    - name: install dependencies
+      run: >
+        sudo apt-get install -qy
+        libapparmor-dev libselinux1-dev
+    - name: print env
+      run: ./ci/printenv.sh
     - name: configure
-      run: CC=clang-11 ./configure --enable-fatal-warnings
+      run: >
+        ./configure CC=clang-14
+        --prefix=/usr --enable-fatal-warnings
+        --enable-apparmor --enable-selinux
+        || (cat config.log; exit 1)
     - name: make
       run: make
-  scan-build:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-    - name: install clang-tools-11
-      run: sudo apt-get install clang-tools-11
-    - name: configure
-      run: CC=clang-11 ./configure --enable-fatal-warnings
-    - name: scan-build
-      run: NO_EXTRA_CFLAGS="yes" scan-build-11 --status-bugs make
-  cppcheck:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-    - name: install cppcheck
-      run: sudo apt-get install cppcheck
-    - name: cppcheck
-      run: cppcheck -q --force --error-exitcode=1 --enable=warning,performance .
+    - name: make install
+      run: sudo make install
+    - name: make installcheck
+      run: make installcheck

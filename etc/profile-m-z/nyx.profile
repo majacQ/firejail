@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -40,16 +39,17 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 
 disable-mnt
 private-bin nyx,python*
 private-cache
 private-dev
-private-etc alternatives,fonts,passwd,tor
+private-etc tor
 private-opt none
 private-srv none
 private-tmp
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

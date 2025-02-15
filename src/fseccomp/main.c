@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -22,32 +22,37 @@
 int arg_quiet = 0;
 int arg_seccomp_error_action = SECCOMP_RET_ERRNO | EPERM; // error action: errno, log or kill
 
+static const char *const usage_str =
+	"Usage:\n"
+	"\tfseccomp debug-syscalls\n"
+	"\tfseccomp debug-syscalls32\n"
+	"\tfseccomp debug-errnos\n"
+	"\tfseccomp debug-protocols\n"
+	"\tfseccomp protocol build list file\n"
+	"\tfseccomp secondary 64 file\n"
+	"\tfseccomp secondary 32 file\n"
+	"\tfseccomp secondary block file\n"
+	"\tfseccomp default file\n"
+	"\tfseccomp default file allow-debuggers\n"
+	"\tfseccomp default32 file\n"
+	"\tfseccomp default32 file allow-debuggers\n"
+	"\tfseccomp drop file1 file2 list\n"
+	"\tfseccomp drop file1 file2 list allow-debuggers\n"
+	"\tfseccomp drop32 file1 file2 list\n"
+	"\tfseccomp drop32 file1 file2 list allow-debuggers\n"
+	"\tfseccomp default drop file1 file2 list\n"
+	"\tfseccomp default drop file1 file2 list allow-debuggers\n"
+	"\tfseccomp default32 drop file1 file2 list\n"
+	"\tfseccomp default32 drop file1 file2 list allow-debuggers\n"
+	"\tfseccomp keep file1 file2 list\n"
+	"\tfseccomp keep32 file1 file2 list\n"
+	"\tfseccomp memory-deny-write-execute file\n"
+	"\tfseccomp memory-deny-write-execute.32 file\n"
+	"\tfseccomp restrict-namespaces file list\n"
+	"\tfseccomp restrict-namespaces.32 file list\n";
+
 static void usage(void) {
-	printf("Usage:\n");
-	printf("\tfseccomp debug-syscalls\n");
-	printf("\tfseccomp debug-syscalls32\n");
-	printf("\tfseccomp debug-errnos\n");
-	printf("\tfseccomp debug-protocols\n");
-	printf("\tfseccomp protocol build list file\n");
-	printf("\tfseccomp secondary 64 file\n");
-	printf("\tfseccomp secondary 32 file\n");
-	printf("\tfseccomp secondary block file\n");
-	printf("\tfseccomp default file\n");
-	printf("\tfseccomp default file allow-debuggers\n");
-	printf("\tfseccomp default32 file\n");
-	printf("\tfseccomp default32 file allow-debuggers\n");
-	printf("\tfseccomp drop file1 file2 list\n");
-	printf("\tfseccomp drop file1 file2 list allow-debuggers\n");
-	printf("\tfseccomp drop32 file1 file2 list\n");
-	printf("\tfseccomp drop32 file1 file2 list allow-debuggers\n");
-	printf("\tfseccomp default drop file1 file2 list\n");
-	printf("\tfseccomp default drop file1 file2 list allow-debuggers\n");
-	printf("\tfseccomp default32 drop file1 file2 list\n");
-	printf("\tfseccomp default32 drop file1 file2 list allow-debuggers\n");
-	printf("\tfseccomp keep file1 file2 list\n");
-	printf("\tfseccomp keep32 file1 file2 list\n");
-	printf("\tfseccomp memory-deny-write-execute file\n");
-	printf("\tfseccomp memory-deny-write-execute.32 file\n");
+	puts(usage_str);
 }
 
 int main(int argc, char **argv) {
@@ -56,7 +61,7 @@ int main(int argc, char **argv) {
 //system("cat /proc/self/status");
 int i;
 for (i = 0; i < argc; i++)
-        printf("*%s* ", argv[i]);
+	printf("*%s* ", argv[i]);
 printf("\n");
 }
 #endif
@@ -135,6 +140,10 @@ printf("\n");
 		memory_deny_write_execute(argv[2]);
 	else if (argc == 3 && strcmp(argv[1], "memory-deny-write-execute.32") == 0)
 		memory_deny_write_execute_32(argv[2]);
+	else if (argc == 4 && strcmp(argv[1], "restrict-namespaces") == 0)
+		deny_ns(argv[2], argv[3]);
+	else if (argc == 4 && strcmp(argv[1], "restrict-namespaces.32") == 0)
+		deny_ns_32(argv[2], argv[3]);
 	else {
 		fprintf(stderr, "Error fseccomp: invalid arguments\n");
 		return 1;

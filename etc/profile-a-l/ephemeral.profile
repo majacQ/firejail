@@ -9,8 +9,8 @@ include globals.local
 # enforce private-cache
 #noblacklist ${HOME}/.cache/ephemeral
 
-noblacklist ${HOME}/.pki
 noblacklist ${HOME}/.local/share/pki
+noblacklist ${HOME}/.pki
 
 # noexec ${HOME} breaks DRM binaries.
 ?BROWSER_ALLOW_DRM: ignore noexec ${HOME}
@@ -23,12 +23,12 @@ include disable-programs.inc
 
 # enforce private-cache
 #mkdir ${HOME}/.cache/ephemeral
-mkdir ${HOME}/.pki
 mkdir ${HOME}/.local/share/pki
+mkdir ${HOME}/.pki
 # enforce private-cache
 #whitelist ${HOME}/.cache/ephemeral
-whitelist ${HOME}/.pki
 whitelist ${HOME}/.local/share/pki
+whitelist ${HOME}/.pki
 whitelist ${DOWNLOADS}
 include whitelist-common.inc
 include whitelist-usr-share-common.inc
@@ -49,16 +49,17 @@ notv
 ?BROWSER_DISABLE_U2F: nou2f
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-cache
 ?BROWSER_DISABLE_U2F: private-dev
 # private-etc below works fine on most distributions. There are some problems on CentOS.
-#private-etc alternatives,asound.conf,ca-certificates,crypto-policies,dconf,fonts,group,gtk-2.0,gtk-3.0,hostname,hosts,ld.so.cache,localtime,login.defs,machine-id,mailcap,mime.types,nsswitch.conf,os-release,pango,passwd,pki,pulse,resolv.conf,selinux,ssl,X11,xdg
+#private-etc @tls-ca,@x11,mailcap,mime.types,os-release
 private-tmp
 
 # breaks preferences
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
+
+restrict-namespaces

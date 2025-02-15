@@ -9,14 +9,13 @@ include globals.local
 
 noblacklist ${HOME}/.gnupg
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}/wayland-*
 
 include disable-common.inc
 include disable-devel.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
+include disable-x11.inc
 
 whitelist ${RUNUSER}/gnupg
 whitelist ${RUNUSER}/keyring
@@ -41,10 +40,9 @@ nou2f
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
-# private-bin gpg,gpg-agent
+#private-bin gpg
 private-cache
 private-dev
 
@@ -53,3 +51,4 @@ private-dev
 # installing/upgrading archlinux-keyring extremely slow.
 read-write /etc/pacman.d/gnupg
 read-write /usr/share/pacman/keyrings
+restrict-namespaces

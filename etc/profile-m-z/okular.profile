@@ -23,7 +23,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -34,9 +33,9 @@ whitelist /usr/share/config.kcfg/okular.kcfg
 whitelist /usr/share/config.kcfg/okular_core.kcfg
 whitelist /usr/share/ghostscript
 whitelist /usr/share/kconf_update/okular.upd
-whitelist /usr/share/kxmlgui5/okular
 whitelist /usr/share/okular
 whitelist /usr/share/poppler
+include whitelist-run-common.inc
 include whitelist-runuser-common.inc
 include whitelist-usr-share-common.inc
 include whitelist-var-common.inc
@@ -44,7 +43,7 @@ include whitelist-var-common.inc
 apparmor
 caps.drop all
 machine-id
-# net none
+#net none
 netfilter
 nodvd
 nogroups
@@ -57,17 +56,18 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
-private-bin kbuildsycoca4,kdeinit4,lpr,okular,unar,unrar
+private-bin kbuildsycoca4,kdeinit4,lpr,okular,ps2pdf,unar,unrar
 private-dev
-private-etc alternatives,cups,fonts,kde4rc,kde5rc,ld.so.cache,machine-id,passwd,xdg
-# private-tmp - on KDE we need access to the real /tmp for data exchange with email clients
+private-etc @x11,cups
+# on KDE we need access to the real /tmp for data exchange with email clients
+#private-tmp
 
-# dbus-user none
-# dbus-system none
+#dbus-user none
+#dbus-system none
 
-# memory-deny-write-execute
+#memory-deny-write-execute
 
+restrict-namespaces
 join-or-start okular

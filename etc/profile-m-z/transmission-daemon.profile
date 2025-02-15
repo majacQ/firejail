@@ -17,7 +17,7 @@ caps.keep ipc_lock,net_bind_service,setgid,setuid,sys_chroot
 protocol packet
 
 private-bin transmission-daemon
-private-etc alternatives,ca-certificates,crypto-policies,nsswitch.conf,pki,resolv.conf,ssl
+private-etc @tls-ca
 
 read-write /var/lib/transmission
 writable-var-log

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -22,6 +22,7 @@
 #include "../include/common.h"
 #include "../include/euid_common.h"
 #include "../include/rundefs.h"
+#include <linux/limits.h> // Note: Plain limits.h may break ARG_MAX (see #4583)
 #include <stdarg.h>
 #include <sys/stat.h>
 
@@ -41,6 +42,15 @@
 		assert(file);\
 		struct stat s;\
 		if (stat(file, &s) == -1) errExit("stat");\
+		assert(s.st_uid == uid);\
+		assert(s.st_gid == gid);\
+		assert((s.st_mode & 07777) == (mode));\
+	} while (0)
+#define ASSERT_PERMS_AS_USER(file, uid, gid, mode) \
+	do { \
+		assert(file);\
+		struct stat s;\
+		if (stat_as_user(file, &s) == -1) errExit("stat");\
 		assert(s.st_uid == uid);\
 		assert(s.st_gid == gid);\
 		assert((s.st_mode & 07777) == (mode));\
@@ -140,15 +150,32 @@ typedef struct profile_entry_t {
 
 } ProfileEntry;
 
+typedef struct landlock_entry_t {
+	struct landlock_entry_t *next;
+#define LL_FS_READ 0
+#define LL_FS_WRITE 1
+#define LL_FS_MAKEIPC 2
+#define LL_FS_MAKEDEV 3
+#define LL_FS_EXEC 4
+#define LL_MAX 5
+	int type;
+	char *data;
+} LandlockEntry;
+
 typedef struct config_t {
 	// user data
 	char *username;
 	char *homedir;
+	char *usershell;
 
 	// filesystem
 	ProfileEntry *profile;
+	ProfileEntry *profile_rebuild_etc;	// blacklist files in /etc directory used by fs_rebuild_etc()
+	LandlockEntry *lprofile;
+
 #define MAX_PROFILE_IGNORE 32
 	char *profile_ignore[MAX_PROFILE_IGNORE];
+	char *keep_fd;		// inherit file descriptors to sandbox
 	char *chrootdir;	// chroot directory
 	char *home_private;	// private home directory
 	char *home_private_keep;	// keep list for private home directory
@@ -184,6 +211,7 @@ typedef struct config_t {
 	char *seccomp_list_drop, *seccomp_list_drop32;	// seccomp drop list
 	char *seccomp_list_keep, *seccomp_list_keep32;	// seccomp keep list
 	char *protocol;			// protocol list
+	char *restrict_namespaces;			// namespaces list
 	char *seccomp_error_action;			// error action: kill, log or errno
 
 	// rlimits
@@ -198,13 +226,11 @@ typedef struct config_t {
 	// cpu affinity, nice and control groups
 	uint32_t cpus;
 	int nice;
-	char *cgroup;
 
 	// command line
 	char *command_line;
 	char *window_title;
 	char *command_name;
-	char *shell;
 	char **original_argv;
 	int original_argc;
 	int original_program_index;
@@ -253,9 +279,11 @@ static inline int any_ip6_dhcp(void) {
 }
 
 static inline int any_dhcp(void) {
-  return any_ip_dhcp() || any_ip6_dhcp();
+	return any_ip_dhcp() || any_ip6_dhcp();
 }
 
+extern int lockfd_directory;
+extern int lockfd_network;
 extern int arg_private;		// mount private /home
 extern int arg_private_cache;	// private home/.cache
 extern int arg_debug;		// print debug messages
@@ -267,6 +295,8 @@ extern int arg_command;	// -c
 extern int arg_overlay;		// overlay option
 extern int arg_overlay_keep;	// place overlay diff in a known directory
 extern int arg_overlay_reuse;	// allow the reuse of overlays
+
+extern int arg_landlock_enforce;	// enforce the Landlock ruleset
 
 extern int arg_seccomp;	// enable default seccomp filter
 extern int arg_seccomp32;	// enable default seccomp filter for 32 bit arch
@@ -297,7 +327,6 @@ extern char *arg_netfilter_file;	// netfilter file
 extern char *arg_netfilter6_file;	// netfilter file
 extern char *arg_netns;		// "ip netns"-created network namespace to use
 extern int arg_doubledash;	// double dash
-extern int arg_shell_none;	// run the program directly without a shell
 extern int arg_private_dev;	// private dev directory
 extern int arg_keep_dev_shm;    // preserve /dev/shm
 extern int arg_private_etc;	// private etc directory
@@ -312,6 +341,7 @@ extern int arg_whitelist;	// whitelist command
 extern int arg_nosound;	// disable sound
 extern int arg_novideo; //disable video devices in /dev
 extern int arg_no3d;		// disable 3d hardware acceleration
+extern int arg_noprinters;	// disable printers
 extern int arg_quiet;		// no output for scripting
 extern int arg_join_network;	// join only the network namespace
 extern int arg_join_filesystem;	// join only the mount namespace
@@ -319,25 +349,33 @@ extern int arg_nice;		// nice value configured
 extern int arg_ipc;		// enable ipc namespace
 extern int arg_writable_etc;	// writable etc
 extern int arg_keep_config_pulse;	// disable automatic ~/.config/pulse init
+extern int arg_keep_shell_rc;	// do not copy shell configuration from /etc/skel
 extern int arg_writable_var;	// writable var
 extern int arg_keep_var_tmp; // don't overwrite /var/tmp
 extern int arg_writable_run_user;	// writable /run/user
 extern int arg_writable_var_log; // writable /var/log
 extern int arg_appimage;	// appimage
 extern int arg_apparmor;	// apparmor
+extern char *apparmor_profile;	// apparmor profile
+extern bool apparmor_replace; // whether apparmor should replace the profile (legacy behavior)
 extern int arg_allow_debuggers;	// allow debuggers
 extern int arg_x11_block;	// block X11
 extern int arg_x11_xorg;	// use X11 security extension
 extern int arg_allusers;	// all user home directories visible
-extern int arg_machineid;	// preserve /etc/machine-id
+extern int arg_machineid;	// spoof /etc/machine-id
 extern int arg_disable_mnt;	// disable /mnt and /media
 extern int arg_noprofile;	// use default.profile if none other found/specified
 extern int arg_memory_deny_write_execute;	// block writable and executable memory
 extern int arg_notv;	// --notv
 extern int arg_nodvd;	// --nodvd
+extern int arg_notpm;	// --notpm
 extern int arg_nou2f;	// --nou2f
 extern int arg_noinput;	// --noinput
 extern int arg_deterministic_exit_code;	// always exit with first child's exit status
+extern int arg_deterministic_shutdown;	// shut down the sandbox if first child dies
+extern int arg_keep_fd_all;	// inherit all file descriptors to sandbox
+extern int arg_netlock;	// netlocker
+extern int arg_restrict_namespaces;
 
 typedef enum {
 	DBUS_POLICY_ALLOW,	// Allow unrestricted access to the bus
@@ -349,6 +387,7 @@ extern DbusPolicy arg_dbus_system; // --dbus-system
 extern int arg_dbus_log_user;
 extern int arg_dbus_log_system;
 extern const char *arg_dbus_log_file;
+extern int arg_tab;
 
 extern int login_shell;
 extern int parent_to_child_fds[2];
@@ -370,7 +409,6 @@ char *guess_shell(void);
 #define SANDBOX_DONE '1'
 int sandbox(void* sandbox_arg);
 void start_application(int no_sandbox, int fd, char *set_sandbox_status) __attribute__((noreturn));
-void set_apparmor(void);
 
 // network_main.c
 void net_configure_sandbox_ip(Bridge *br);
@@ -394,7 +432,12 @@ int net_get_mac(const char *ifname, unsigned char mac[6]);
 void net_config_interface(const char *dev, uint32_t ip, uint32_t mask, int mtu);
 
 // preproc.c
-void preproc_build_firejail_dir(void);
+void preproc_lock_firejail_dir(void);
+void preproc_unlock_firejail_dir(void);
+void preproc_lock_firejail_network_dir(void);
+void preproc_unlock_firejail_network_dir(void);
+void preproc_build_firejail_dir_unlocked(void);
+void preproc_build_firejail_dir_locked(void);
 void preproc_mount_mnt_dir(void);
 void preproc_clean_run(void);
 
@@ -422,12 +465,14 @@ void fs_proc_sys_dev_boot(void);
 void disable_config(void);
 // build a basic read-only filesystem
 void fs_basic_fs(void);
-// mount overlayfs on top of / directory
-char *fs_check_overlay_dir(const char *subdirname, int allow_reuse);
-void fs_overlayfs(void);
 void fs_private_tmp(void);
 void fs_private_cache(void);
 void fs_mnt(const int enforce);
+
+// fs_overlayfs.c
+char *fs_check_overlay_dir(const char *subdirname, int allow_reuse);
+void fs_overlayfs(void);
+int remove_overlay_directory(void);
 
 // chroot.c
 // chroot into an existing directory; mount existing /dev and update /etc/resolv.conf
@@ -456,13 +501,33 @@ void tree(void);
 void top(void);
 
 // usage.c
+void print_version(FILE *stream);
+void print_version_full(void);
 void usage(void);
 
+// process.c
+typedef struct processhandle_instance_t * ProcessHandle;
+
+ProcessHandle pin_process(pid_t pid);
+void unpin_process(ProcessHandle process);
+pid_t process_get_pid(ProcessHandle process);
+int process_get_fd(ProcessHandle process);
+int process_stat_nofail(ProcessHandle process, const char *fname, struct stat *s);
+int process_stat(ProcessHandle process, const char *fname, struct stat *s);
+int process_open_nofail(ProcessHandle process, const char *fname);
+int process_open(ProcessHandle process, const char *fname);
+FILE *process_fopen(ProcessHandle process, const char *fname);
+int process_join_namespace(ProcessHandle process, char *type);
+void process_send_signal(ProcessHandle process, int signum);
+ProcessHandle pin_parent_process(ProcessHandle process);
+ProcessHandle pin_child_process(ProcessHandle process, pid_t child);
+void process_rootfs_chroot(ProcessHandle process);
+int process_rootfs_stat(ProcessHandle process, const char *fname, struct stat *s);
+int process_rootfs_open(ProcessHandle process, const char *fname);
+
 // join.c
+ProcessHandle pin_sandbox_process(pid_t pid);
 void join(pid_t pid, int argc, char **argv, int index) __attribute__((noreturn));
-bool is_ready_for_join(const pid_t pid);
-void check_join_permission(pid_t pid);
-pid_t switch_to_child(pid_t pid);
 
 // shutdown.c
 void shut(pid_t pid);
@@ -489,7 +554,9 @@ int macro_id(const char *name);
 void errLogExit(char* fmt, ...) __attribute__((noreturn));
 void fwarning(char* fmt, ...);
 void fmessage(char* fmt, ...);
-void drop_privs(int nogroups);
+long long unsigned parse_arg_size(char *str);
+int check_can_drop_all_groups();
+void drop_privs(int force_nogroups);
 int mkpath_as_root(const char* path);
 void extract_command_name(int index, char **argv);
 void logsignal(int s);
@@ -497,12 +564,17 @@ void logmsg(const char *msg);
 void logargs(int argc, char **argv) ;
 void logerr(const char *msg);
 void set_nice(int inc);
+int copy_file_by_fd(int src, int dst);
 int copy_file(const char *srcname, const char *destname, uid_t uid, gid_t gid, mode_t mode);
-void copy_file_as_user(const char *srcname, const char *destname, uid_t uid, gid_t gid, mode_t mode);
+void copy_file_as_user(const char *srcname, const char *destname, mode_t mode);
 void copy_file_from_user_to_root(const char *srcname, const char *destname, uid_t uid, gid_t gid, mode_t mode);
 void touch_file_as_user(const char *fname, mode_t mode);
 int is_dir(const char *fname);
 int is_link(const char *fname);
+char *realpath_as_user(const char *fname);
+ssize_t readlink_as_user(const char *fname, char *buf, size_t sz);
+int stat_as_user(const char *fname, struct stat *s);
+int lstat_as_user(const char *fname, struct stat *s);
 void trim_trailing_slash_or_dot(char *path);
 char *line_remove_spaces(const char *buf);
 char *split_comma(char *str);
@@ -514,8 +586,7 @@ void update_map(char *mapping, char *map_file);
 void wait_for_other(int fd);
 void notify_other(int fd);
 uid_t pid_get_uid(pid_t pid);
-uid_t get_group_id(const char *group);
-int remove_overlay_directory(void);
+gid_t get_group_id(const char *groupname);
 void flush_stdin(void);
 int create_empty_dir_as_user(const char *dir, mode_t mode);
 void create_empty_dir_as_root(const char *dir, mode_t mode);
@@ -526,11 +597,23 @@ unsigned extract_timeout(const char *str);
 void disable_file_or_dir(const char *fname);
 void disable_file_path(const char *path, const char *file);
 int safer_openat(int dirfd, const char *path, int flags);
+int remount_by_fd(int dst, unsigned long mountflags);
+int bind_mount_by_fd(int src, int dst);
+int bind_mount_path_to_fd(const char *srcname, int dst);
+int bind_mount_fd_to_path(int src, const char *destname);
+void close_all(int *keep_list, size_t sz);
 int has_handler(pid_t pid, int signal);
 void enter_network_namespace(pid_t pid);
 int read_pid(const char *name, pid_t *pid);
 pid_t require_pid(const char *name);
-void check_homedir(void);
+int ascii_isalnum(unsigned char c);
+int ascii_isalpha(unsigned char c);
+int ascii_isdigit(unsigned char c);
+int ascii_islower(unsigned char c);
+int ascii_isupper(unsigned char c);
+int ascii_isxdigit(unsigned char c);
+int invalid_name(const char *name);
+void check_homedir(const char *dir);
 
 // Get info regarding the last kernel mount operation from /proc/self/mountinfo
 // The return value points to a static area, and will be overwritten by subsequent calls.
@@ -544,8 +627,8 @@ typedef struct {
 
 // mountinfo.c
 MountData *get_last_mount(void);
-int get_mount_id(const char *path);
-char **build_mount_array(const int mount_id, const char *path);
+int get_mount_id(int fd);
+char **build_mount_array(const int mountid, const char *path);
 
 // fs_var.c
 void fs_var_log(void);	// mounting /var/log
@@ -555,7 +638,6 @@ void fs_var_run(void);
 void fs_var_lock(void);
 void fs_var_tmp(void);
 void fs_var_utmp(void);
-void dbg_test_dir(const char *dir);
 
 // fs_dev.c
 void fs_dev_shm(void);
@@ -565,6 +647,7 @@ void fs_dev_disable_3d(void);
 void fs_dev_disable_video(void);
 void fs_dev_disable_tv(void);
 void fs_dev_disable_dvd(void);
+void fs_dev_disable_tpm(void);
 void fs_dev_disable_u2f(void);
 void fs_dev_disable_input(void);
 
@@ -587,6 +670,7 @@ int seccomp_load(const char *fname);
 int seccomp_filter_drop(bool native);
 int seccomp_filter_keep(bool native);
 int seccomp_filter_mdwx(bool native);
+int seccomp_filter_namespaces(bool native, const char *list);
 void seccomp_print_filter(pid_t pid) __attribute__((noreturn));
 
 // caps.c
@@ -602,13 +686,13 @@ void caps_print_filter(pid_t pid) __attribute__((noreturn));
 void caps_drop_dac_override(void);
 
 // fs_trace.c
-void fs_trace_preload(void);
+void fs_trace_touch_preload(void);
+void fs_trace_touch_or_store_preload(void);
 void fs_tracefile(void);
 void fs_trace(void);
 
 // fs_hostname.c
-void fs_hostname(const char *hostname);
-void fs_resolvconf(void);
+void fs_hostname(void);
 char *fs_check_hosts_file(const char *fname);
 void fs_store_hosts_file(void);
 void fs_mount_hosts_file(void);
@@ -619,19 +703,15 @@ void set_rlimits(void);
 // cpu.c
 void read_cpu_list(const char *str);
 void set_cpu_affinity(void);
-void load_cpu(const char *fname);
 void save_cpu(void);
 void cpu_print_filter(pid_t pid) __attribute__((noreturn));
-
-// cgroup.c
-void save_cgroup(void);
-void load_cgroup(const char *fname);
-void set_cgroup(const char *path);
 
 // output.c
 void check_output(int argc, char **argv);
 
 // netfilter.c
+void netfilter_netlock(pid_t pid);
+void netfilter_trace(pid_t pid, const char *cmd);
 void check_netfilter_file(const char *fname);
 void netfilter(const char *fname);
 void netfilter6(const char *fname);
@@ -647,6 +727,8 @@ void bandwidth_pid(pid_t pid, const char *command, const char *dev, int down, in
 void network_set_run_file(pid_t pid);
 
 // fs_etc.c
+char *fs_etc_build(char *str);
+void fs_resolvconf(void);
 void fs_machineid(void);
 void fs_private_dir_copy(const char *private_dir, const char *private_run_dir, const char *private_list);
 void fs_private_dir_mount(const char *private_dir, const char *private_run_dir);
@@ -678,6 +760,7 @@ void env_ibus_load(void);
 void fs_whitelist(void);
 
 // pulseaudio.c
+void pipewire_disable(void);
 void pulseaudio_init(void);
 void pulseaudio_disable(void);
 
@@ -685,6 +768,8 @@ void pulseaudio_disable(void);
 void fs_private_bin_list(void);
 
 // fs_lib.c
+int is_firejail_link(const char *fname);
+char *find_in_path(const char *program);
 void fs_private_lib(void);
 
 // protocol.c
@@ -759,27 +844,31 @@ enum {
 	CFG_NETWORK,
 	CFG_RESTRICTED_NETWORK,
 	CFG_FORCE_NONEWPRIVS,
-	CFG_WHITELIST,
 	CFG_XEPHYR_WINDOW_TITLE,
 	CFG_OVERLAYFS,
-	CFG_PRIVATE_HOME,
+	CFG_PRIVATE_BIN,
 	CFG_PRIVATE_BIN_NO_LOCAL,
+	CFG_PRIVATE_CACHE,
+	CFG_PRIVATE_ETC,
+	CFG_PRIVATE_HOME,
+	CFG_PRIVATE_LIB,
+	CFG_PRIVATE_OPT,
+	CFG_PRIVATE_SRV,
 	CFG_FIREJAIL_PROMPT,
-	CFG_FOLLOW_SYMLINK_AS_USER,
 	CFG_DISABLE_MNT,
 	CFG_JOIN,
 	CFG_ARP_PROBES,
 	CFG_XPRA_ATTACH,
 	CFG_BROWSER_DISABLE_U2F,
 	CFG_BROWSER_ALLOW_DRM,
-	CFG_PRIVATE_LIB,
 	CFG_APPARMOR,
 	CFG_DBUS,
-	CFG_PRIVATE_CACHE,
-	CFG_CGROUP,
 	CFG_NAME_CHANGE,
 	CFG_SECCOMP_ERROR_ACTION,
 	// CFG_FILE_COPY_LIMIT - file copy limit handled using setenv/getenv
+	CFG_ALLOW_TRAY,
+	CFG_SECCOMP_LOG,
+	CFG_TRACELOG,
 	CFG_MAX // this should always be the last entry
 };
 extern char *xephyr_screen;
@@ -790,12 +879,14 @@ extern char *xvfb_extra_params;
 extern char *netfilter_default;
 extern unsigned long join_timeout;
 extern char *config_seccomp_error_action_str;
+extern char *config_seccomp_filter_add;
 extern char **whitelist_reject_topdirs;
 
 int checkcfg(int val);
 void print_compiletime_support(void);
 
 // appimage.c
+int appimage_find_profile(const char *archive);
 void appimage_set(const char *appimage_path);
 void appimage_mount(void);
 void appimage_clear(void);
@@ -804,15 +895,14 @@ void appimage_clear(void);
 long unsigned int appimage2_size(int fd);
 
 // cmdline.c
-void build_cmdline(char **command_line, char **window_title, int argc, char **argv, int index);
-void build_appimage_cmdline(char **command_line, char **window_title, int argc, char **argv, int index);
+void build_cmdline(char **command_line, char **window_title, int argc, char **argv, int index, bool want_extra_quotes);
+void build_appimage_cmdline(char **command_line, char **window_title, int argc, char **argv, int index, bool want_extra_quotes);
 
 // sbox.c
 // programs
 #define PATH_FNET_MAIN (LIBDIR "/firejail/fnet")		// when called from main thread
 #define PATH_FNET (RUN_FIREJAIL_LIB_DIR "/fnet")	// when called from sandbox thread
 
-//#define PATH_FNETFILTER (LIBDIR "/firejail/fnetfilter")
 #define PATH_FNETFILTER (RUN_FIREJAIL_LIB_DIR "/fnetfilter")
 
 #define PATH_FIREMON (PREFIX "/bin/firemon")
@@ -821,20 +911,17 @@ void build_appimage_cmdline(char **command_line, char **window_title, int argc, 
 #define PATH_FSECCOMP_MAIN (LIBDIR "/firejail/fseccomp")		// when called from main thread
 #define PATH_FSECCOMP ( RUN_FIREJAIL_LIB_DIR "/fseccomp")	// when called from sandbox thread
 
-// FSEC_PRINT is run outside of sandbox by --seccomp.print
-// it is also run from inside the sandbox by --debug; in this case we do an access(filename, X_OK) test first
-#define PATH_FSEC_PRINT (LIBDIR "/firejail/fsec-print")
+#define PATH_FSEC_PRINT (RUN_FIREJAIL_LIB_DIR "/fsec-print")
 
-//#define PATH_FSEC_OPTIMIZE (LIBDIR "/firejail/fsec-optimize")
 #define PATH_FSEC_OPTIMIZE (RUN_FIREJAIL_LIB_DIR "/fsec-optimize")
 
-//#define PATH_FCOPY (LIBDIR "/firejail/fcopy")
 #define PATH_FCOPY (RUN_FIREJAIL_LIB_DIR "/fcopy")
 
 #define SBOX_STDIN_FILE "/run/firejail/mnt/sbox_stdin"
 
-//#define PATH_FLDD (LIBDIR "/firejail/fldd")
 #define PATH_FLDD (RUN_FIREJAIL_LIB_DIR "/fldd")
+
+#define PATH_FIDS (LIBDIR "/firejail/fids")
 
 // bitmapped filters for sbox_run
 #define SBOX_ROOT (1 << 0)			// run the sandbox as root
@@ -847,7 +934,6 @@ void build_appimage_cmdline(char **command_line, char **window_title, int argc, 
 #define SBOX_CAPS_HIDEPID (1 << 7)	// hidepid caps filter for running firemon
 #define SBOX_CAPS_NET_SERVICE (1 << 8) // caps filter for programs running network services
 #define SBOX_KEEP_FDS (1 << 9) // keep file descriptors open
-#define FIREJAIL_MAX_FD 20 // getdtablesize() is overkill for a firejail process
 
 // run sbox
 int sbox_run(unsigned filter, int num, ...);
@@ -860,6 +946,8 @@ void delete_bandwidth_run_file(pid_t pid);
 void set_name_run_file(pid_t pid);
 void set_x11_run_file(pid_t pid, int display);
 void set_profile_run_file(pid_t pid, const char *fname);
+void set_sandbox_run_file(pid_t pid, pid_t child);
+void release_sandbox_lock(void);
 
 // dbus.c
 int dbus_check_name(const char *name);
@@ -879,5 +967,16 @@ void dhcp_start(void);
 
 // selinux.c
 void selinux_relabel_path(const char *path, const char *inside_path);
+
+// ids.c
+void run_ids(int argc, char **argv);
+
+// oom.c
+void oom_set(const char *oom_string);
+
+// landlock.c
+int ll_get_fd(void);
+int ll_restrict(uint32_t flags);
+void ll_add_profile(int type, const char *data);
 
 #endif

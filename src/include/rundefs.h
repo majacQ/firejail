@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -23,8 +23,9 @@
 // filesystem
 #define RUN_FIREJAIL_BASEDIR		"/run"
 #define RUN_FIREJAIL_DIR		RUN_FIREJAIL_BASEDIR "/firejail"
+#define RUN_FIREJAIL_SANDBOX_DIR	RUN_FIREJAIL_DIR "/sandbox"
 #define RUN_FIREJAIL_APPIMAGE_DIR	RUN_FIREJAIL_DIR "/appimage"
-#define RUN_FIREJAIL_NAME_DIR		RUN_FIREJAIL_DIR "/name" // also used in src/lib/pid.c - todo: move it in a common place
+#define RUN_FIREJAIL_NAME_DIR		RUN_FIREJAIL_DIR "/name"
 #define RUN_FIREJAIL_LIB_DIR		RUN_FIREJAIL_DIR "/lib"
 #define RUN_FIREJAIL_X11_DIR		RUN_FIREJAIL_DIR "/x11"
 #define RUN_FIREJAIL_NETWORK_DIR	RUN_FIREJAIL_DIR "/network"
@@ -36,7 +37,6 @@
 #define RUN_RO_DIR			RUN_FIREJAIL_DIR "/firejail.ro.dir"
 #define RUN_RO_FILE			RUN_FIREJAIL_DIR "/firejail.ro.file"
 #define RUN_MNT_DIR			RUN_FIREJAIL_DIR "/mnt"	// a tmpfs is mounted on this directory before any of the files below are created
-#define RUN_CGROUP_CFG			RUN_MNT_DIR "/cgroup"
 #define RUN_CPU_CFG			RUN_MNT_DIR "/cpu"
 #define RUN_GROUPS_CFG			RUN_MNT_DIR "/groups"
 #define RUN_PROTOCOL_CFG		RUN_MNT_DIR "/protocol"
@@ -68,6 +68,8 @@
 #define RUN_SECCOMP_32			RUN_SECCOMP_DIR "/seccomp.32"			// 32bit arch filter installed on 64bit architectures
 #define RUN_SECCOMP_MDWX		RUN_SECCOMP_DIR "/seccomp.mdwx"			// filter for memory-deny-write-execute
 #define RUN_SECCOMP_MDWX_32		RUN_SECCOMP_DIR "/seccomp.mdwx.32"
+#define RUN_SECCOMP_NS			RUN_SECCOMP_DIR "/seccomp.namespaces"
+#define RUN_SECCOMP_NS_32		RUN_SECCOMP_DIR "/seccomp.namespaces.32"
 #define RUN_SECCOMP_BLOCK_SECONDARY	RUN_SECCOMP_DIR "/seccomp.block_secondary"	// secondary arch blocking filter
 #define RUN_SECCOMP_POSTEXEC		RUN_SECCOMP_DIR "/seccomp.postexec"		// filter for post-exec library
 #define RUN_SECCOMP_POSTEXEC_32		RUN_SECCOMP_DIR "/seccomp.postexec32"		// filter for post-exec library
@@ -77,20 +79,19 @@
 #define PATH_SECCOMP_DEBUG_32 		LIBDIR "/firejail/seccomp.debug32"		// 32bit arch debug filter built during make
 #define PATH_SECCOMP_MDWX 		LIBDIR "/firejail/seccomp.mdwx"			// filter for memory-deny-write-execute built during make
 #define PATH_SECCOMP_MDWX_32 		LIBDIR "/firejail/seccomp.mdwx.32"
+#define PATH_SECCOMP_NAMESPACES	LIBDIR "/firejail/seccomp.namespaces"	// filter for restrict-namespaces
+#define PATH_SECCOMP_NAMESPACES_32	LIBDIR "/firejail/seccomp.namespaces.32"
 #define PATH_SECCOMP_BLOCK_SECONDARY 	LIBDIR "/firejail/seccomp.block_secondary"	// secondary arch blocking filter built during make
-
 
 #define RUN_DEV_DIR			RUN_MNT_DIR "/dev"
 #define RUN_DEVLOG_FILE			RUN_MNT_DIR "/devlog"
-
-#define RUN_WHITELIST_X11_DIR		RUN_MNT_DIR "/orig-x11"
-
 #define RUN_XAUTHORITY_FILE		RUN_MNT_DIR "/.Xauthority"		// private options
 #define RUN_XAUTH_FILE			RUN_MNT_DIR "/xauth"			// x11=xorg
 #define RUN_XAUTHORITY_SEC_DIR		RUN_MNT_DIR "/.sec.Xauthority"		// x11=xorg
 #define RUN_ASOUNDRC_FILE		RUN_MNT_DIR "/.asoundrc"
 #define RUN_HOSTNAME_FILE		RUN_MNT_DIR "/hostname"
 #define RUN_HOSTS_FILE			RUN_MNT_DIR "/hosts"
+#define RUN_HOSTS_FILE2			RUN_MNT_DIR "/hosts2"
 #define RUN_MACHINEID			RUN_MNT_DIR "/machine-id"
 #define RUN_LDPRELOAD_FILE		RUN_MNT_DIR "/ld.so.preload"
 #define RUN_UTMP_FILE			RUN_MNT_DIR "/utmp"
@@ -101,5 +102,7 @@
 #define RUN_UMASK_FILE			RUN_MNT_DIR "/umask"
 #define RUN_JOIN_FILE	 		RUN_MNT_DIR "/join"
 #define RUN_OVERLAY_ROOT		RUN_MNT_DIR "/oroot"
+#define RUN_RESOLVCONF_FILE		RUN_MNT_DIR "/resolv.conf"
+
 
 #endif

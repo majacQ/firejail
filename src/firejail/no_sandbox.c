@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -29,10 +29,10 @@
 int is_container(const char *str) {
 	assert(str);
 	if (strcmp(str, "lxc") == 0 ||
-	     strcmp(str, "docker") == 0 ||
-	     strcmp(str, "lxc-libvirt") == 0 ||
-	     strcmp(str, "systemd-nspawn") == 0 ||
-	     strcmp(str, "rkt") == 0)
+	    strcmp(str, "docker") == 0 ||
+	    strcmp(str, "lxc-libvirt") == 0 ||
+	    strcmp(str, "systemd-nspawn") == 0 ||
+	    strcmp(str, "rkt") == 0)
 		return 1;
 	return 0;
 }
@@ -49,6 +49,7 @@ int check_namespace_virt(void) {
 	// check PID 1 container environment variable
 	EUID_ROOT();
 	FILE *fp = fopen("/proc/1/environ", "re");
+	EUID_USER();
 	if (fp) {
 		int c = 0;
 		while (c != EOF) {
@@ -69,7 +70,6 @@ int check_namespace_virt(void) {
 				// found it
 				if (is_container(buf + 10)) {
 					fclose(fp);
-					EUID_USER();
 					return 1;
 				}
 			}
@@ -79,7 +79,6 @@ int check_namespace_virt(void) {
 		fclose(fp);
 	}
 
-	EUID_USER();
 	return 0;
 }
 
@@ -121,7 +120,7 @@ int check_kernel_procs(void) {
 
 		// read file
 		char buf[100];
-		if (fgets(buf, 10, fp) == NULL) {
+		if (fgets(buf, 100, fp) == NULL) {
 			fwarning("cannot read %s\n", fname);
 			fclose(fp);
 			free(fname);
@@ -190,25 +189,15 @@ void run_no_sandbox(int argc, char **argv) {
 	}
 
 	if (prog_index == 0) {
-		// got no command, require a shell and try to execute it
-		cfg.shell = guess_shell();
-		if (!cfg.shell) {
-			fprintf(stderr, "Error: unable to guess your shell, please set SHELL environment variable\n");
-			exit(1);
-		}
-
 		assert(cfg.command_line == NULL);
-		cfg.window_title = cfg.shell;
+		cfg.window_title = cfg.usershell;
 	} else {
 		// this sandbox might not allow execution of a shell
-		// force --shell=none in order to not break firecfg symbolic links
-		arg_shell_none = 1;
-
-		build_cmdline(&cfg.command_line, &cfg.window_title, argc, argv, prog_index);
+		build_cmdline(&cfg.command_line, &cfg.window_title, argc, argv, prog_index, true);
 	}
 
 	fwarning("an existing sandbox was detected. "
-		"%s will run without any additional sandboxing features\n", prog_index ? argv[prog_index] : cfg.shell);
+		"%s will run without any additional sandboxing features\n", prog_index ? argv[prog_index] : cfg.usershell);
 
 	cfg.original_argv = argv;
 	cfg.original_program_index = prog_index;

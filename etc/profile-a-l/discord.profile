@@ -9,9 +9,11 @@ noblacklist ${HOME}/.config/discord
 
 mkdir ${HOME}/.config/discord
 whitelist ${HOME}/.config/discord
+whitelist /opt/Discord
+whitelist /opt/discord
+whitelist /usr/share/discord
 
-private-bin discord
-private-opt discord
+private-bin Discord,discord
 
 # Redirect
 include discord-common.profile

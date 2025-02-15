@@ -16,7 +16,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -35,11 +34,12 @@ novideo
 protocol unix
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
 private-cache
 private-dev
-private-etc alsa,asound.conf,dconf,fonts,gtk-2.0,gtk-3.0,machine-id,openal,pango,pulse,xdg
+private-etc @games,@x11
 private-tmp
+
+restrict-namespaces

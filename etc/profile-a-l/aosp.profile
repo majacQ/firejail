@@ -20,7 +20,6 @@ include allow-common-devel.inc
 include allow-ssh.inc
 
 include disable-common.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-xdg.inc
 
@@ -39,6 +38,7 @@ notv
 novideo
 protocol unix,inet,inet6
 #seccomp
-shell none
 
 private-tmp
+
+#restrict-namespaces

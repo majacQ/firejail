@@ -12,18 +12,19 @@ noblacklist ${HOME}/.config/kdiff3rc
 # Add the next line to your kdiff3.local if you don't need to compare files in disable-common.inc.
 # By default we deny access only to .ssh and .gnupg.
 #include disable-common.inc
-blacklist ${HOME}/.ssh
 blacklist ${HOME}/.gnupg
+blacklist ${HOME}/.ssh
 
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 # Add the next line to your kdiff3.local if you don't need to compare files in disable-programs.inc.
 #include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
 
+# Add the next line to your kdiff3.local if you don't need to compare files in /run.
+#include whitelist-run-common.inc
 include whitelist-runuser-common.inc
 # Add the next line to your kdiff3.local if you don't need to compare files in /usr/share.
 #include whitelist-usr-share-common.inc
@@ -45,13 +46,15 @@ nou2f
 novideo
 seccomp
 seccomp.block-secondary
-shell none
 tracelog
 
 disable-mnt
-private-bin  kdiff3
+private-bin kdiff3
 private-cache
 private-dev
+private-etc @x11
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

@@ -9,12 +9,11 @@ include globals.local
 # Allow ssh (blacklisted by disable-common.inc)
 include allow-ssh.inc
 
-blacklist /tmp/.X11-unix
 blacklist ${RUNUSER}/wayland-*
 
 include disable-common.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
+include disable-x11.inc
 
 include whitelist-usr-share-common.inc
 
@@ -28,10 +27,11 @@ notv
 novideo
 protocol unix,inet,inet6
 seccomp
-shell none
 tracelog
 
 writable-run-user
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

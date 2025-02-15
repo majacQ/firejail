@@ -14,12 +14,11 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 
 mkdir ${HOME}/.config/Google Play Music Desktop Player
-# whitelist ${HOME}/.config/pulse
-# whitelist ${HOME}/.pulse
+#whitelist ${HOME}/.config/pulse
+#whitelist ${HOME}/.pulse
 whitelist ${HOME}/.config/Google Play Music Desktop Player
 include whitelist-common.inc
 
@@ -36,8 +35,9 @@ nou2f
 novideo
 protocol unix,inet,inet6,netlink
 seccomp
-shell none
 
 disable-mnt
 private-dev
 private-tmp
+
+restrict-namespaces

@@ -13,14 +13,12 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 
 include whitelist-usr-share-common.inc
 
 caps.drop all
-hostname uudeview
 ipc-namespace
 machine-id
 net none
@@ -35,14 +33,15 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 x11 none
 
 private-bin uudeview
 private-cache
 private-dev
-private-etc alternatives,ld.so.preload
+private-etc
 
 dbus-user none
 dbus-system none
+
+restrict-namespaces

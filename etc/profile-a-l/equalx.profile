@@ -13,7 +13,6 @@ include disable-common.inc
 include disable-devel.inc
 include disable-exec.inc
 include disable-interpreters.inc
-include disable-passwdmgr.inc
 include disable-programs.inc
 include disable-shell.inc
 include disable-xdg.inc
@@ -24,7 +23,6 @@ whitelist ${HOME}/.config/equalx
 whitelist ${HOME}/.equalx
 whitelist /usr/share/poppler
 whitelist /usr/share/ghostscript
-whitelist /usr/share/texlive
 whitelist /usr/share/equalx
 whitelist /var/lib/texmf
 include whitelist-common.inc
@@ -48,17 +46,17 @@ nou2f
 novideo
 protocol unix
 seccomp
-shell none
 tracelog
 
 disable-mnt
 private-bin equalx,gs,pdflatex,pdftocairo
 private-cache
 private-dev
-private-etc equalx,equalx.conf,fonts,gtk-2.0,latexmk.conf,machine-id,papersize,passwd,texlive,Trolltech.conf
+private-etc @x11,equalx,equalx.conf,latexmk.conf,papersize,texlive
 private-tmp
 
 dbus-user none
 dbus-system none
 
 memory-deny-write-execute
+restrict-namespaces

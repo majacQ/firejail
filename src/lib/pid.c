@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Firejail Authors
+ * Copyright (C) 2014-2025 Firejail Authors
  *
  * This file is part of firejail project
  *
@@ -20,6 +20,7 @@
 
 #include "../include/common.h"
 #include "../include/pid.h"
+#include "../include/rundefs.h"
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -30,7 +31,7 @@
 #define PIDS_BUFLEN 4096
 //Process pids[max_pids];
 Process *pids = NULL;
-int max_pids=32769;
+int max_pids=32769; // recalculated for every read_pid() call
 
 // get the memory associated with this pid
 void pid_getmem(unsigned pid, unsigned *rss, unsigned *shared) {
@@ -74,8 +75,14 @@ void pid_get_cpu_time(unsigned pid, unsigned *utime, unsigned *stime) {
 	if (fgets(line, PIDS_BUFLEN - 1, fp)) {
 		char *ptr = line;
 		// jump 13 fields
+
+		// end of comm string
+		ptr = strchr(ptr, ')');
+		if (ptr == NULL)
+			goto myexit;
+
 		int i;
-		for (i = 0; i < 13; i++) {
+		for (i = 0; i < 11; i++) {
 			while (*ptr != ' ' && *ptr != '\t' && *ptr != '\0')
 				ptr++;
 			if (*ptr == '\0')
@@ -167,10 +174,6 @@ doexit:
 	return rv;
 }
 
-// todo: RUN_FIREJAIL_NAME_DIR is borrowed from src/firejail/firejail.h
-// move it in a common place
-#define RUN_FIREJAIL_NAME_DIR	"/run/firejail/name"
-
 static void print_elem(unsigned index, int nowrap) {
 	// get terminal size
 	struct winsize sz;
@@ -190,6 +193,12 @@ static void print_elem(unsigned index, int nowrap) {
 	char *cmd = pid_proc_cmdline(index);
 	char *user = pid_get_user_name(uid);
 	char *user_allocated = user;
+
+	char *cmd_escaped = escape_cntrl_chars(cmd);
+	if (cmd_escaped) {
+		free(cmd);
+		cmd = cmd_escaped;
+	}
 
 	// extract sandbox name - pid == index
 	char *sandbox_name = "";
@@ -218,7 +227,7 @@ static void print_elem(unsigned index, int nowrap) {
 	}
 	free(fname);
 
-	if (user ==NULL)
+	if (user == NULL)
 		user = "";
 	if (cmd) {
 		if (col < 4 || nowrap)
@@ -273,51 +282,27 @@ void pid_print_list(unsigned index, int nowrap) {
 	print_elem(index, nowrap);
 }
 
-// recursivity!!!
-void pid_store_cpu(unsigned index, unsigned parent, unsigned *utime, unsigned *stime) {
-	if (pids[index].level == 1) {
-		*utime = 0;
-		*stime = 0;
-	}
-
-	// Remove unused parameter warning
-	(void)parent;
-
-	unsigned utmp = 0;
-	unsigned stmp = 0;
-	pid_get_cpu_time(index, &utmp, &stmp);
-	*utime += utmp;
-	*stime += stmp;
-
-	unsigned i;
-	for (i = index + 1; i < (unsigned)max_pids; i++) {
-		if (pids[i].parent == (pid_t)index)
-			pid_store_cpu(i, index, utime, stime);
-	}
-
-	if (pids[index].level == 1) {
-		pids[index].utime = *utime;
-		pids[index].stime = *stime;
-	}
-}
-
 // mon_pid: pid of sandbox to be monitored, 0 if all sandboxes are included
 void pid_read(pid_t mon_pid) {
-	if (pids == NULL) {
-		FILE *fp = fopen("/proc/sys/kernel/pid_max", "r");
-		if (fp) {
-			int val;
-			if (fscanf(fp, "%d", &val) == 1) {
-				if (val >= max_pids)
-					max_pids = val + 1;
-			}
-			fclose(fp);
+	unsigned old_max_pids = max_pids;
+	FILE *fp = fopen("/proc/sys/kernel/pid_max", "r");
+	if (fp) {
+		int val;
+		if (fscanf(fp, "%d", &val) == 1) {
+			if (val >= max_pids)
+				max_pids = val + 1;
 		}
+		fclose(fp);
+	}
+
+	if (pids == NULL) {
+		old_max_pids = max_pids;
 		pids = malloc(sizeof(Process) * max_pids);
 		if (pids == NULL)
 			errExit("malloc");
 	}
-	memset(pids, 0, sizeof(Process) * max_pids);
+
+	memset(pids, 0, sizeof(Process) * old_max_pids);
 	pid_t mypid = getpid();
 
 	DIR *dir;
@@ -332,9 +317,12 @@ void pid_read(pid_t mon_pid) {
 
 	struct dirent *entry;
 	char *end;
+	pid_t new_max_pids = 0;
 	while ((entry = readdir(dir))) {
 		pid_t pid = strtol(entry->d_name, &end, 10);
 		pid %= max_pids;
+		if (pid > new_max_pids)
+			new_max_pids = pid;
 		if (end == entry->d_name || *end)
 			continue;
 		if (pid == mypid)
@@ -417,6 +405,9 @@ void pid_read(pid_t mon_pid) {
 		free(file);
 	}
 	closedir(dir);
+
+	// update max_pid
+	max_pids = new_max_pids + 1;
 
 	pid_t pid;
 	for (pid = 0; pid < max_pids; pid++) {
